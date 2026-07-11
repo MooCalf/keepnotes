@@ -10,7 +10,7 @@ A simple, secure sticky-notes desktop app for Windows. Google Keep style card gr
 OR
 
 
-1. Download the [KeepNotes-Setup](./KeepNotes-Setup-1.0.0.exe) exe file
+1. Download the [KeepNotes Setup](https://github.com/MooCalf/keepnotes/raw/main/KeepNotes-Setup-1.0.0.exe) exe file
 2. Run it, pick an install location
 3. Your done!
 
