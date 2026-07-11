@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: keepnotes-asset:; font-src 'self'" />
+  <title>KeepNotes</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="customTitlebar" class="custom-titlebar" hidden>
+    <div class="custom-titlebar-drag">
+      <span class="brand-dot"></span>
+      <span class="custom-titlebar-title">KeepNotes</span>
+    </div>
+    <div class="custom-titlebar-controls">
+      <button id="winMinBtn" class="titlebar-btn" data-icon="minimize-2" aria-label="Minimize"></button>
+      <button id="winMaxBtn" class="titlebar-btn" data-icon="maximize-2" aria-label="Maximize or restore"></button>
+      <button id="winCloseBtn" class="titlebar-btn titlebar-close" data-icon="x" aria-label="Close"></button>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <h1>KeepNotes</h1>
+    </div>
+    <input id="search" type="search" placeholder="Search notes  (Ctrl+K for quick switcher)" autocomplete="off" />
+    <div class="topbar-actions">
+      <button id="newNoteBtn" class="btn btn-primary" data-icon="plus"><span class="btn-label">New note</span></button>
+      <button id="themeToggleBtn" class="btn btn-ghost icon-btn" title="Toggle light/dark" aria-label="Toggle theme" data-icon="sun"></button>
+      <button id="settingsBtn" class="btn btn-ghost icon-btn" title="Settings" aria-label="Settings" data-icon="settings"></button>
+    </div>
+  </header>
+
+  <div id="tagBar" class="tagbar" hidden></div>
+
+  <div id="loading" class="loading" hidden>
+    <div class="spinner"></div>
+  </div>
+
+  <main id="grid" class="grid" aria-live="polite"></main>
+
+  <div id="empty" class="empty" hidden>
+    <p class="empty-title">No notes yet</p>
+    <p>Create your first note, or drop .txt files into your notes folder and they will show up here.</p>
+  </div>
+
+  <!-- Editor -->
+  <div id="editorOverlay" class="overlay" hidden>
+    <div class="editor card" role="dialog" aria-modal="true">
+      <input id="editorTitle" class="editor-title" placeholder="Title" maxlength="60" />
+
+      <div class="editor-tabs">
+        <button id="editTabBtn" class="tab active" data-icon="pencil">Edit</button>
+        <button id="previewTabBtn" class="tab" data-icon="eye">Preview</button>
+      </div>
+
+      <textarea id="editorBody" class="editor-body" placeholder="Take a note... [ ] for checkboxes, [[Note]] to link, #tag to tag, ** for bold."></textarea>
+      <div id="editorPreview" class="editor-body md-preview" hidden></div>
+
+      <div id="backlinks" class="backlinks" hidden>
+        <div class="backlinks-title">Linked mentions</div>
+        <div id="backlinksList" class="backlinks-list"></div>
+      </div>
+
+      <div class="editor-tools">
+        <div class="swatches" id="swatches"></div>
+        <div class="editor-spacer"></div>
+        <button id="imageBtn" class="btn btn-ghost icon-btn" title="Insert image" data-icon="image"></button>
+        <button id="pinBtn" class="btn btn-ghost icon-btn" title="Pin" data-icon="pin"></button>
+        <button id="checklistBtn" class="btn btn-ghost" data-icon="square-check">Checklist line</button>
+        <button id="deleteBtn" class="btn btn-danger icon-btn" title="Delete" data-icon="trash-2"></button>
+        <button id="closeEditorBtn" class="btn btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div id="settingsOverlay" class="overlay" hidden>
+    <div class="settings card" role="dialog" aria-modal="true">
+      <h2>Settings</h2>
+
+      <div class="setting-row column">
+        <strong>Appearance</strong>
+        <small>Pick a light or dark theme</small>
+        <div class="theme-menu">
+          <div class="theme-group">
+            <div class="theme-group-label" data-icon="sun">Light</div>
+            <div class="theme-swatches" id="lightThemeSwatches"></div>
+          </div>
+          <div class="theme-group">
+            <div class="theme-group-label" data-icon="moon">Dark</div>
+            <div class="theme-swatches" id="darkThemeSwatches"></div>
+          </div>
+        </div>
+      </div>
+
+      <label class="setting-row">
+        <span>
+          <strong>Open at Windows startup</strong>
+          <small>KeepNotes launches when you sign in</small>
+        </span>
+        <input type="checkbox" id="optStartup" class="switch" />
+      </label>
+
+      <label class="setting-row">
+        <span>
+          <strong>Keep on top of other windows</strong>
+          <small>The app stays visible over everything else</small>
+        </span>
+        <input type="checkbox" id="optOnTop" class="switch" />
+      </label>
+
+      <label class="setting-row">
+        <span>
+          <strong>Widget mode</strong>
+          <small>Small corner panel, hidden from the taskbar and Alt-Tab</small>
+        </span>
+        <input type="checkbox" id="optWidget" class="switch" />
+      </label>
+
+      <label class="setting-row">
+        <span>
+          <strong>Borderless window</strong>
+          <small>Removes the native title bar in favor of a slim custom one. Restarts the window.</small>
+        </span>
+        <input type="checkbox" id="optBorderless" class="switch" />
+      </label>
+
+      <label class="setting-row">
+        <span>
+          <strong>Minimize to system tray</strong>
+          <small>Minimizing hides the window instead of showing it on the taskbar</small>
+        </span>
+        <input type="checkbox" id="optMinimizeTray" class="switch" />
+      </label>
+
+      <div class="setting-row column">
+        <strong>When closing the window</strong>
+        <small>What the X button does</small>
+        <select id="optCloseAction" class="select">
+          <option value="ask">Always ask</option>
+          <option value="quit">Close the app</option>
+          <option value="tray">Minimize to tray</option>
+        </select>
+      </div>
+
+      <div class="setting-row column">
+        <strong>Notes folder</strong>
+        <small>Every note is a plain .txt file in this folder. Any .txt you drop here appears in the app.</small>
+        <div class="folder-row">
+          <code id="folderPath"></code>
+          <button id="changeFolderBtn" class="btn btn-ghost">Change</button>
+          <button id="openFolderBtn" class="btn btn-ghost">Open</button>
+        </div>
+      </div>
+
+      <div class="settings-footer">
+        <button id="closeSettingsBtn" class="btn btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Close confirmation -->
+  <div id="closeConfirmOverlay" class="overlay" hidden>
+    <div class="card confirm-card" role="dialog" aria-modal="true">
+      <h2>Close KeepNotes?</h2>
+      <p>You can close the app completely, or send it to the system tray and keep it running in the background.</p>
+      <div class="confirm-actions">
+        <button id="confirmCancelBtn" class="btn btn-ghost">Cancel</button>
+        <button id="confirmTrayBtn" class="btn btn-ghost" data-icon="minimize-2">Minimize to tray</button>
+        <button id="confirmQuitBtn" class="btn btn-danger">Close app</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Command palette -->
+  <div id="paletteOverlay" class="overlay" hidden>
+    <div class="card palette-card" role="dialog" aria-modal="true">
+      <input id="paletteInput" class="palette-input" placeholder="Jump to a note or run a command..." autocomplete="off" />
+      <div id="paletteResults" class="palette-results"></div>
+    </div>
+  </div>
+
+  <script src="icons.js"></script>
+  <script src="markdown.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
