@@ -103,6 +103,8 @@ html, body {
 .icon-btn { width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .icon-btn .icon { margin: 0; }
 .icon-btn.is-pinned { color: var(--accent); border-color: var(--accent); }
+.icon-btn.has-reminder { color: var(--accent); border-color: var(--accent); }
+.icon-btn.is-urgent { color: var(--danger); border-color: var(--danger); }
 .theme-group-label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
 
 /* ---------- custom titlebar (borderless mode) ---------- */
@@ -196,6 +198,7 @@ html, body {
   display: inline-flex;
   align-items: center;
 }
+.btn[hidden] { display: none; }
 .btn:hover { filter: brightness(0.97); }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
@@ -234,11 +237,48 @@ html, body {
 .note.blush  { background: var(--card-blush); }
 .note.lilac  { background: var(--card-lilac); }
 
-.note-head { display: flex; align-items: baseline; gap: 8px; }
+/* Urgent notes get a red ring plus a slow pulsing red tint over the card's
+   own color, so the note stays identifiable while still reading as urgent. */
+.note.urgent {
+  position: relative;
+  border-color: var(--danger);
+  animation: urgent-strobe 1.6s ease-in-out infinite;
+}
+.note.urgent::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  background: rgba(220, 38, 38, 0.16);
+  animation: urgent-tint 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes urgent-strobe {
+  0%, 100% { box-shadow: var(--shadow), 0 0 0 1px var(--danger); }
+  50% { box-shadow: var(--shadow), 0 0 14px 3px rgba(255, 59, 48, 0.65), 0 0 0 2px #ff3b30; }
+}
+@keyframes urgent-tint {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 0.32; }
+}
+
+/* Content sits in its own stacking layer above the ::before tint so text
+   stays legible through the strobe instead of being washed out at peak opacity. */
+.note-head { display: flex; align-items: baseline; gap: 8px; position: relative; z-index: 1; }
 .note-title { font-weight: 650; font-size: 15px; margin: 0 0 6px; flex: 1; }
 .note-pin { display: inline-flex; color: var(--ink-soft); }
+.note-urgent-badge { display: inline-flex; color: var(--danger); }
 
-.note-body { white-space: pre-wrap; color: var(--ink); font-size: 14px; line-height: 1.45; max-height: 260px; overflow: hidden; }
+.note-reminder {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--ink-soft);
+  margin: -2px 0 8px;
+  position: relative; z-index: 1;
+}
+.note-reminder .icon { width: 13px; height: 13px; }
+.note-reminder.due { color: var(--danger); font-weight: 600; }
+
+.note-body { white-space: pre-wrap; color: var(--ink); font-size: 14px; line-height: 1.45; max-height: 260px; overflow: hidden; position: relative; z-index: 1; }
 
 .note .check {
   display: flex; align-items: flex-start; gap: 8px; padding: 2px 0;
@@ -275,6 +315,7 @@ html, body {
 .editor.sky   { background: var(--card-sky); }
 .editor.blush { background: var(--card-blush); }
 .editor.lilac { background: var(--card-lilac); }
+.editor.urgent { box-shadow: 0 0 0 2px var(--danger), 0 12px 40px rgba(0, 0, 0, 0.35); }
 
 .editor-title {
   width: 100%; border: none; background: transparent;
@@ -352,6 +393,15 @@ html, body {
 .theme-swatch .half { position: absolute; inset: 0; }
 .theme-swatch .half.accent { left: 55%; }
 
+/* reminder picker */
+.reminder-card { width: min(380px, 100%); }
+.reminder-sub { color: var(--ink-soft); font-size: 13px; margin: 0 0 14px; }
+.reminder-input {
+  width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--card-paper); color: var(--ink); margin-bottom: 16px;
+}
+.reminder-actions { display: flex; align-items: center; gap: 8px; }
+
 .folder-row { display: flex; align-items: center; gap: 8px; width: 100%; }
 .folder-row code {
   flex: 1; background: var(--bg); border: 1px solid var(--line);
@@ -406,4 +456,9 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .note, .note:hover { transition: none; transform: none; }
   .spinner { animation: none; }
+  .note.urgent, .note.urgent::before {
+    animation: none;
+  }
+  .note.urgent { box-shadow: var(--shadow), 0 0 0 2px var(--danger); }
+  .note.urgent::before { opacity: 0.2; }
 }

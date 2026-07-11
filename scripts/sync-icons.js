@@ -8,7 +8,7 @@ const path = require('path');
 const ICONS = [
   'settings', 'sun', 'moon', 'image', 'pin', 'pin-off', 'tag', 'hash',
   'link', 'search', 'plus', 'trash-2', 'x', 'minimize-2', 'maximize-2', 'pencil', 'eye',
-  'command', 'palette', 'folder-open', 'square-check', 'check'
+  'command', 'palette', 'folder-open', 'square-check', 'check', 'bell', 'triangle-alert'
 ];
 
 const srcDir = path.join(__dirname, '..', 'node_modules', 'lucide-static', 'icons');

@@ -69,6 +69,8 @@
         <div class="editor-spacer"></div>
         <button id="imageBtn" class="btn btn-ghost icon-btn" title="Insert image" data-icon="image"></button>
         <button id="pinBtn" class="btn btn-ghost icon-btn" title="Pin" data-icon="pin"></button>
+        <button id="reminderBtn" class="btn btn-ghost icon-btn" title="Set reminder" data-icon="bell"></button>
+        <button id="urgentBtn" class="btn btn-ghost icon-btn" title="Mark urgent" data-icon="triangle-alert"></button>
         <button id="checklistBtn" class="btn btn-ghost" data-icon="square-check">Checklist line</button>
         <button id="deleteBtn" class="btn btn-danger icon-btn" title="Delete" data-icon="trash-2"></button>
         <button id="closeEditorBtn" class="btn btn-primary">Done</button>
@@ -171,6 +173,21 @@
         <button id="confirmCancelBtn" class="btn btn-ghost">Cancel</button>
         <button id="confirmTrayBtn" class="btn btn-ghost" data-icon="minimize-2">Minimize to tray</button>
         <button id="confirmQuitBtn" class="btn btn-danger">Close app</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reminder picker -->
+  <div id="reminderOverlay" class="overlay" hidden>
+    <div class="card reminder-card" role="dialog" aria-modal="true">
+      <h2>Set reminder</h2>
+      <p class="reminder-sub">Pick a date and time. You'll get a Windows notification about this note when it's due.</p>
+      <input type="datetime-local" id="reminderTimeInput" class="reminder-input" />
+      <div class="reminder-actions">
+        <button id="reminderClearBtn" class="btn btn-ghost" data-icon="x">Clear reminder</button>
+        <div class="editor-spacer"></div>
+        <button id="reminderCancelBtn" class="btn btn-ghost">Cancel</button>
+        <button id="reminderSaveBtn" class="btn btn-primary" data-icon="bell">Save</button>
       </div>
     </div>
   </div>

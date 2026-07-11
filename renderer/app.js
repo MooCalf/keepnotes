@@ -99,6 +99,21 @@ function titleOf(file) {
   return file.replace(/\.txt$/i, '');
 }
 
+// ---------- reminders ----------
+function formatReminder(ms) {
+  const d = new Date(ms);
+  const now = new Date();
+  const opts = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+  if (d.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+  return d.toLocaleString(undefined, opts);
+}
+
+function toDatetimeLocalValue(ms) {
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function computeTagCounts() {
   const counts = new Map();
   for (const n of notes) {
@@ -151,7 +166,7 @@ function renderGrid() {
     shown++;
 
     const card = document.createElement('article');
-    card.className = `note ${n.meta.color || 'paper'}`;
+    card.className = `note ${n.meta.color || 'paper'}${n.meta.urgent ? ' urgent' : ''}`;
     card.tabIndex = 0;
     card.setAttribute('role', 'button');
 
@@ -168,7 +183,25 @@ function renderGrid() {
       pin.appendChild(icon('pin'));
       head.appendChild(pin);
     }
+    if (n.meta.urgent) {
+      const urgent = document.createElement('span');
+      urgent.className = 'note-urgent-badge';
+      urgent.title = 'Urgent';
+      urgent.appendChild(icon('triangle-alert'));
+      head.appendChild(urgent);
+    }
     card.appendChild(head);
+
+    if (typeof n.meta.reminderAt === 'number') {
+      const rem = document.createElement('div');
+      const isDue = n.meta.reminderAt <= Date.now() && !n.meta.reminderNotified;
+      rem.className = 'note-reminder' + (isDue ? ' due' : '');
+      rem.appendChild(icon('bell'));
+      const span = document.createElement('span');
+      span.textContent = formatReminder(n.meta.reminderAt);
+      rem.appendChild(span);
+      card.appendChild(rem);
+    }
 
     const body = document.createElement('div');
     body.className = 'note-body';
@@ -226,6 +259,19 @@ function updatePinBtn() {
   const pinned = !!current.meta.pinned;
   $('pinBtn').classList.toggle('is-pinned', pinned);
   $('pinBtn').title = pinned ? 'Unpin' : 'Pin';
+}
+
+function updateReminderBtn() {
+  const has = typeof current.meta.reminderAt === 'number';
+  $('reminderBtn').classList.toggle('has-reminder', has);
+  $('reminderBtn').title = has ? `Reminder: ${formatReminder(current.meta.reminderAt)}` : 'Set reminder';
+}
+
+function updateUrgentBtn() {
+  const urgent = !!current.meta.urgent;
+  $('urgentBtn').classList.toggle('is-urgent', urgent);
+  $('urgentBtn').title = urgent ? 'Marked urgent (click to unmark)' : 'Mark urgent';
+  document.querySelector('.editor').classList.toggle('urgent', urgent);
 }
 
 function setEditorMode(mode) {
@@ -303,6 +349,8 @@ function openEditor(note) {
   const ed = document.querySelector('.editor');
   ed.className = `editor card ${note.meta.color || 'paper'}`;
   renderSwatches();
+  updateReminderBtn();
+  updateUrgentBtn();
   setEditorMode('edit');
   renderBacklinks();
   $('editorOverlay').hidden = false;
@@ -437,6 +485,13 @@ async function openSettings() {
 // ---------- close confirmation ----------
 api.onConfirmClose(() => { $('closeConfirmOverlay').hidden = false; });
 
+// ---------- reminder notification click ----------
+api.onReminderOpen(async (_e, fileName) => {
+  await refresh();
+  const n = notes.find((x) => x.file === fileName);
+  if (n) openEditor(n);
+});
+
 $('confirmCancelBtn').addEventListener('click', () => {
   $('closeConfirmOverlay').hidden = true;
   api.respondCloseAction('cancel');
@@ -559,6 +614,49 @@ $('pinBtn').addEventListener('click', async () => {
   renderGrid();
 });
 
+$('urgentBtn').addEventListener('click', async () => {
+  current.meta = await api.setNoteMeta(current.file, { urgent: !current.meta.urgent });
+  updateUrgentBtn();
+  renderGrid();
+});
+
+// ---------- reminder picker ----------
+$('reminderBtn').addEventListener('click', () => {
+  const input = $('reminderTimeInput');
+  const hasReminder = typeof current.meta.reminderAt === 'number';
+  input.value = toDatetimeLocalValue(hasReminder ? current.meta.reminderAt : Date.now() + 60 * 60 * 1000);
+  $('reminderClearBtn').hidden = !hasReminder;
+  $('reminderOverlay').hidden = false;
+  input.focus();
+});
+
+function closeReminderOverlay() {
+  $('reminderOverlay').hidden = true;
+}
+
+$('reminderCancelBtn').addEventListener('click', closeReminderOverlay);
+$('reminderOverlay').addEventListener('click', (e) => {
+  if (e.target === $('reminderOverlay')) closeReminderOverlay();
+});
+
+$('reminderSaveBtn').addEventListener('click', async () => {
+  const val = $('reminderTimeInput').value;
+  if (!val) return;
+  const ms = new Date(val).getTime();
+  if (Number.isNaN(ms)) return;
+  current.meta = await api.setNoteMeta(current.file, { reminderAt: ms });
+  updateReminderBtn();
+  renderGrid();
+  closeReminderOverlay();
+});
+
+$('reminderClearBtn').addEventListener('click', async () => {
+  current.meta = await api.setNoteMeta(current.file, { reminderAt: null });
+  updateReminderBtn();
+  renderGrid();
+  closeReminderOverlay();
+});
+
 $('deleteBtn').addEventListener('click', async () => {
   if (!current) return;
   if (!confirm(`Move "${titleOf(current.file)}" to the Recycle Bin?`)) return;
@@ -601,7 +699,8 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'Escape') {
-    if (!$('paletteOverlay').hidden) closePalette();
+    if (!$('reminderOverlay').hidden) closeReminderOverlay();
+    else if (!$('paletteOverlay').hidden) closePalette();
     else if (!$('editorOverlay').hidden) closeEditor();
     else if (!$('settingsOverlay').hidden) $('settingsOverlay').hidden = true;
     else if (!$('closeConfirmOverlay').hidden) {

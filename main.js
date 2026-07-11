@@ -11,7 +11,7 @@
 
 const {
   app, BrowserWindow, ipcMain, dialog, shell,
-  Tray, Menu, nativeImage, protocol, net, screen
+  Tray, Menu, nativeImage, protocol, net, screen, Notification
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -189,6 +189,70 @@ async function writeMeta(meta) {
   await fsp.writeFile(metaPath(), JSON.stringify(meta, null, 2), 'utf8');
 }
 
+// ---------- reminders ----------
+// Notes carry an optional reminderAt (epoch ms) + reminderNotified flag in the
+// meta sidecar. A lightweight poller checks for due reminders instead of
+// scheduling per-note timers, since reminders can be added/changed/cleared
+// at any time and the note count is small - polling is simpler and just as
+// accurate for a minutes-granularity feature like this.
+const REMINDER_POLL_MS = 20000;
+let reminderTimer = null;
+
+function fireReminderNotification(fileName) {
+  if (!Notification.isSupported()) return;
+  const title = fileName.replace(/\.txt$/i, '');
+  let body = 'Reminder';
+  try {
+    const content = fs.readFileSync(path.join(settings.notesDir, fileName), 'utf8');
+    const firstLine = content.split('\n').find((l) => l.trim().length > 0);
+    if (firstLine) body = firstLine.trim().slice(0, 120);
+  } catch {
+    // note may have no readable content yet; fall back to generic body
+  }
+  const notification = new Notification({
+    title: `Reminder: ${title}`,
+    body,
+    silent: false
+  });
+  notification.on('click', () => {
+    if (!win || win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+    win.webContents.send('reminder:open-note', fileName);
+  });
+  notification.show();
+}
+
+async function checkReminders() {
+  try {
+    const meta = await readMeta();
+    const now = Date.now();
+    let changed = false;
+    for (const [fileName, m] of Object.entries(meta)) {
+      if (!m || typeof m.reminderAt !== 'number' || m.reminderNotified) continue;
+      if (m.reminderAt > now) continue;
+      if (!fs.existsSync(path.join(settings.notesDir, fileName))) {
+        delete meta[fileName].reminderAt;
+        delete meta[fileName].reminderNotified;
+        changed = true;
+        continue;
+      }
+      fireReminderNotification(fileName);
+      meta[fileName] = { ...m, reminderNotified: true };
+      changed = true;
+    }
+    if (changed) await writeMeta(meta);
+  } catch (err) {
+    console.error('Reminder check failed', err);
+  }
+}
+
+function startReminderScheduler() {
+  checkReminders();
+  reminderTimer = setInterval(checkReminders, REMINDER_POLL_MS);
+}
+
 // ---------- notes cache ----------
 // Avoids re-reading every .txt file from disk on every notes:list call
 // (e.g. on each window-focus refresh); only changed/new files are re-read.
@@ -330,7 +394,23 @@ function registerIpc() {
     const clean = {};
     if (typeof patch.pinned === 'boolean') clean.pinned = patch.pinned;
     if (typeof patch.color === 'string' && /^[a-z]{3,12}$/.test(patch.color)) clean.color = patch.color;
-    meta[fileName] = { ...cur, ...clean };
+    if (typeof patch.urgent === 'boolean') clean.urgent = patch.urgent;
+    if (patch && 'reminderAt' in patch) {
+      if (patch.reminderAt === null) {
+        clean.reminderAt = null;
+      } else if (typeof patch.reminderAt === 'number' && Number.isFinite(patch.reminderAt) &&
+                 patch.reminderAt > 0 && patch.reminderAt < 4102444800000 /* year 2100 */) {
+        clean.reminderAt = patch.reminderAt;
+      }
+      // Any change to the reminder time re-arms it so it can fire again.
+      clean.reminderNotified = false;
+    }
+    const next = { ...cur, ...clean };
+    if (next.reminderAt == null) {
+      delete next.reminderAt;
+      delete next.reminderNotified;
+    }
+    meta[fileName] = next;
     await writeMeta(meta);
     return meta[fileName];
   });
@@ -498,11 +578,15 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    // Required for Windows toast notifications to show KeepNotes' icon/name
+    // correctly instead of falling back to Electron's defaults.
+    app.setAppUserModelId('com.moocalf.keepnotes');
     settings = loadSettings();
     registerIpc();
     registerAssetProtocol();
     createWindow();
     createTray();
+    startReminderScheduler();
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

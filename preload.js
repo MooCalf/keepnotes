@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('keepnotes', {
 
   respondCloseAction: (action) => ipcRenderer.invoke('app:closeAction', action),
   onConfirmClose: (callback) => ipcRenderer.on('app:confirm-close', callback),
+  onReminderOpen: (callback) => ipcRenderer.on('reminder:open-note', callback),
 
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize'),
