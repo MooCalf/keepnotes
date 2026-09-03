@@ -46,6 +46,45 @@ html[data-theme="light-sage"] {
   --card-sky: #dcecf9; --card-blush: #fbe3e1; --card-lilac: #ece4f8;
 }
 
+html[data-theme="light-blossom"] {
+  --bg: #fbeef2;
+  --ink: #3a262c;
+  --ink-soft: #8a6a72;
+  --line: #f0d9df;
+  --accent: #c05f7e;
+  --accent-ink: #ffffff;
+  --danger: #b3402e;
+  --shadow: 0 1px 2px rgba(58, 38, 44, 0.08), 0 6px 18px rgba(58, 38, 44, 0.07);
+  --card-paper: #fffdf7; --card-sun: #fff3c2; --card-mint: #dcf3e3;
+  --card-sky: #dcecf9; --card-blush: #fbe3e1; --card-lilac: #ece4f8;
+}
+
+html[data-theme="light-sand"] {
+  --bg: #f6ecd9;
+  --ink: #362c1f;
+  --ink-soft: #8a7a5f;
+  --line: #ecdcb9;
+  --accent: #b8802f;
+  --accent-ink: #ffffff;
+  --danger: #b3402e;
+  --shadow: 0 1px 2px rgba(54, 44, 31, 0.08), 0 6px 18px rgba(54, 44, 31, 0.07);
+  --card-paper: #fffdf7; --card-sun: #fff3c2; --card-mint: #dcf3e3;
+  --card-sky: #dcecf9; --card-blush: #fbe3e1; --card-lilac: #ece4f8;
+}
+
+html[data-theme="light-ice"] {
+  --bg: #eef6f7;
+  --ink: #223034;
+  --ink-soft: #5f7a80;
+  --line: #d3e7ea;
+  --accent: #2f8fa0;
+  --accent-ink: #ffffff;
+  --danger: #c0392b;
+  --shadow: 0 1px 2px rgba(20, 40, 45, 0.08), 0 6px 18px rgba(20, 40, 45, 0.07);
+  --card-paper: #fffdf7; --card-sun: #fff3c2; --card-mint: #dcf3e3;
+  --card-sky: #dcecf9; --card-blush: #fbe3e1; --card-lilac: #ece4f8;
+}
+
 html[data-theme="dark-slate"] {
   --bg: #1e1f22;
   --ink: #e8e6e1;
@@ -85,6 +124,45 @@ html[data-theme="dark-coffee"] {
   --card-sky: #1c2530; --card-blush: #2f1d1c; --card-lilac: #241d2c;
 }
 
+html[data-theme="dark-plum"] {
+  --bg: #1c1522;
+  --ink: #ece6f0;
+  --ink-soft: #a596ad;
+  --line: #362a44;
+  --accent: #b98be0;
+  --accent-ink: #1a1120;
+  --danger: #e2685a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4);
+  --card-paper: #2a2b30; --card-sun: #3a3320; --card-mint: #203a2c;
+  --card-sky: #1f2f3d; --card-blush: #3a2426; --card-lilac: #2c2438;
+}
+
+html[data-theme="dark-forest"] {
+  --bg: #10190f;
+  --ink: #e2ecdf;
+  --ink-soft: #93a68d;
+  --line: #24361f;
+  --accent: #7cc46b;
+  --accent-ink: #0c1509;
+  --danger: #e2685a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4);
+  --card-paper: #2a2b30; --card-sun: #3a3320; --card-mint: #203a2c;
+  --card-sky: #1f2f3d; --card-blush: #3a2426; --card-lilac: #2c2438;
+}
+
+html[data-theme="dark-ocean"] {
+  --bg: #071620;
+  --ink: #d9ecf2;
+  --ink-soft: #7ea2b0;
+  --line: #12313f;
+  --accent: #3fc1e0;
+  --accent-ink: #051019;
+  --danger: #e2685a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4);
+  --card-paper: #2a2b30; --card-sun: #3a3320; --card-mint: #203a2c;
+  --card-sky: #1f2f3d; --card-blush: #3a2426; --card-lilac: #2c2438;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -96,6 +174,29 @@ html, body {
   font-size: 15px;
 }
 
+/* ---------- scrollbars ----------
+   Slim, theme-colored, and invisible until the element is actually
+   scrolled; JS toggles .scrollbar-active on the scrolled element and
+   removes it 3s after the last scroll, letting it fade back out. */
+* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 700ms ease 200ms;
+}
+.scrollbar-active::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--ink-soft) 55%, transparent);
+  transition: background-color 120ms ease;
+}
+.scrollbar-active::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--ink-soft) 85%, transparent);
+}
+
 /* ---------- icons ---------- */
 .icon { display: inline-flex; width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .icon svg { width: 100%; height: 100%; display: block; }
@@ -104,6 +205,7 @@ html, body {
 .icon-btn .icon { margin: 0; }
 .icon-btn.is-pinned { color: var(--accent); border-color: var(--accent); }
 .icon-btn.has-reminder { color: var(--accent); border-color: var(--accent); }
+.icon-btn.is-archived { color: var(--accent); border-color: var(--accent); }
 .icon-btn.is-urgent { color: var(--danger); border-color: var(--danger); }
 .theme-group-label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
 
@@ -145,11 +247,18 @@ html, body {
   flex-wrap: wrap;
 }
 
-.brand { display: flex; align-items: center; gap: 9px; }
+.brand {
+  display: flex; align-items: center; gap: 9px;
+  border: none; background: transparent; padding: 6px 8px; margin: -6px -8px;
+  border-radius: 10px; cursor: pointer; color: inherit; font: inherit;
+}
+.brand:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.brand .icon { width: 18px; height: 18px; color: var(--ink-soft); }
 .brand h1 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: 0.1px; }
 .brand-dot {
   width: 14px; height: 14px; border-radius: 4px;
   background: linear-gradient(135deg, var(--card-sun), var(--accent));
+  flex: none;
 }
 
 #search {
@@ -166,6 +275,40 @@ html, body {
 #search:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
 
 .topbar-actions { margin-left: auto; display: flex; gap: 8px; flex: none; }
+
+/* ---------- nav drawer ---------- */
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 19;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0; pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+
+.drawer {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 20;
+  width: 250px; max-width: 80vw;
+  background: var(--card-paper); border-right: 1px solid var(--line);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+  padding: 14px 10px;
+  display: flex; flex-direction: column; gap: 2px;
+  transform: translateX(-100%);
+  transition: transform 220ms ease;
+}
+.drawer.open { transform: translateX(0); }
+
+.drawer-header { display: flex; align-items: center; gap: 9px; padding: 6px 10px 16px; }
+.drawer-title { font-size: 15px; font-weight: 650; }
+
+.drawer-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  font: inherit; font-size: 14px; text-align: left;
+  border: none; background: transparent; color: var(--ink);
+  padding: 10px 12px; border-radius: 10px; cursor: pointer;
+}
+.drawer-item:hover { background: var(--bg); }
+.drawer-item.active { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-weight: 600; }
+.drawer-item .icon { margin: 0; }
 
 /* ---------- tag bar ---------- */
 .tagbar { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 18px 12px; }
@@ -264,10 +407,20 @@ html, body {
 
 /* Content sits in its own stacking layer above the ::before tint so text
    stays legible through the strobe instead of being washed out at peak opacity. */
-.note-head { display: flex; align-items: baseline; gap: 8px; position: relative; z-index: 1; }
+.note-head { display: flex; align-items: center; gap: 8px; position: relative; z-index: 1; }
 .note-title { font-weight: 650; font-size: 15px; margin: 0 0 6px; flex: 1; }
 .note-pin { display: inline-flex; color: var(--ink-soft); }
 .note-urgent-badge { display: inline-flex; color: var(--danger); }
+
+.note-icon-btn {
+  width: 26px; height: 26px; flex: none; padding: 0; margin-bottom: 6px;
+  border: none; border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink-soft);
+}
+.note-icon-btn:hover { background: color-mix(in srgb, var(--ink) 15%, transparent); color: var(--ink); }
+.note-icon-btn .icon { width: 15px; height: 15px; margin: 0; }
 
 .note-reminder {
   display: flex; align-items: center; gap: 6px;
@@ -279,6 +432,9 @@ html, body {
 .note-reminder.due { color: var(--danger); font-weight: 600; }
 
 .note-body { white-space: pre-wrap; color: var(--ink); font-size: 14px; line-height: 1.45; max-height: 260px; overflow: hidden; position: relative; z-index: 1; }
+/* Card bodies reuse the markdown preview renderer (.md-preview descendant
+   rules) but need the card's own sizing, not the editor preview's. */
+.note-body.md-preview { max-height: 260px; overflow: hidden; }
 
 .note .check {
   display: flex; align-items: flex-start; gap: 8px; padding: 2px 0;
@@ -317,8 +473,11 @@ html, body {
 .editor.lilac { background: var(--card-lilac); }
 .editor.urgent { box-shadow: 0 0 0 2px var(--danger), 0 12px 40px rgba(0, 0, 0, 0.35); }
 
+.editor-title-row { display: flex; align-items: center; gap: 8px; }
+.editor-title-row .icon-btn { flex: none; }
+
 .editor-title {
-  width: 100%; border: none; background: transparent;
+  flex: 1; min-width: 0; border: none; background: transparent;
   font: inherit; font-size: 19px; font-weight: 650; color: var(--ink);
   padding: 4px 2px 10px;
 }
@@ -419,6 +578,21 @@ html, body {
 .confirm-card { width: min(420px, 100%); }
 .confirm-card p { color: var(--ink-soft); font-size: 14px; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+/* icon picker */
+.icon-picker-card { width: min(420px, 100%); }
+.icon-picker-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px; max-height: 320px; overflow-y: auto; padding: 4px 2px;
+}
+.icon-choice {
+  width: 44px; height: 44px; border-radius: 10px; padding: 0;
+  border: 1px solid var(--line); background: var(--card-paper); color: var(--ink-soft);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.icon-choice:hover { background: var(--bg); color: var(--ink); }
+.icon-choice.active { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); color: var(--accent); }
+.icon-choice .icon { width: 20px; height: 20px; margin: 0; }
 
 /* command palette */
 .palette-card { width: min(560px, 100%); padding: 10px; }

@@ -34,16 +34,22 @@ protocol.registerSchemesAsPrivileged([
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
 
 const THEMES = new Set([
-  'light-paper', 'light-mist', 'light-sage',
-  'dark-slate', 'dark-midnight', 'dark-coffee'
+  'light-paper', 'light-mist', 'light-sage', 'light-blossom', 'light-sand', 'light-ice',
+  'dark-slate', 'dark-midnight', 'dark-coffee', 'dark-plum', 'dark-forest', 'dark-ocean'
 ]);
 const THEME_BG = {
   'light-paper': '#f6f3ec',
   'light-mist': '#eef1f5',
   'light-sage': '#eef4ec',
+  'light-blossom': '#fbeef2',
+  'light-sand': '#f6ecd9',
+  'light-ice': '#eef6f7',
   'dark-slate': '#1e1f22',
   'dark-midnight': '#0d1117',
-  'dark-coffee': '#161211'
+  'dark-coffee': '#161211',
+  'dark-plum': '#1c1522',
+  'dark-forest': '#10190f',
+  'dark-ocean': '#071620'
 };
 const CLOSE_ACTIONS = new Set(['ask', 'quit', 'tray']);
 
@@ -394,7 +400,9 @@ function registerIpc() {
     const clean = {};
     if (typeof patch.pinned === 'boolean') clean.pinned = patch.pinned;
     if (typeof patch.color === 'string' && /^[a-z]{3,12}$/.test(patch.color)) clean.color = patch.color;
+    if (typeof patch.icon === 'string' && /^[a-z][a-z0-9-]{1,30}$/.test(patch.icon)) clean.icon = patch.icon;
     if (typeof patch.urgent === 'boolean') clean.urgent = patch.urgent;
+    if (typeof patch.archived === 'boolean') clean.archived = patch.archived;
     if (patch && 'reminderAt' in patch) {
       if (patch.reminderAt === null) {
         clean.reminderAt = null;

@@ -8,20 +8,43 @@ const api = window.keepnotes;
 const COLORS = ['paper', 'sun', 'mint', 'sky', 'blush', 'lilac'];
 const CHECK_RE = /^\[( |x|X)\]\s?(.*)$/;
 
+const DEFAULT_NOTE_ICON = 'sticky-note';
+const NOTE_ICON_CHOICES = [
+  'sticky-note', 'book-open', 'briefcase', 'heart', 'star', 'lightbulb', 'flag', 'coffee',
+  'music', 'code', 'graduation-cap', 'shopping-cart', 'plane', 'home', 'dumbbell', 'utensils',
+  'wallet', 'calendar', 'map-pin', 'camera', 'gift', 'target', 'rocket', 'leaf', 'smile',
+  'gamepad-2', 'clipboard-list', 'folder', 'sparkles', 'cake', 'paw-print', 'cloud'
+];
+
 const THEMES = [
   { id: 'light-paper', label: 'Paper', mode: 'light', bg: '#f6f3ec', accent: '#1f6f54' },
   { id: 'light-mist', label: 'Mist', mode: 'light', bg: '#eef1f5', accent: '#3b6ea5' },
   { id: 'light-sage', label: 'Sage', mode: 'light', bg: '#eef4ec', accent: '#4c7a3f' },
+  { id: 'light-blossom', label: 'Blossom', mode: 'light', bg: '#fbeef2', accent: '#c05f7e' },
+  { id: 'light-sand', label: 'Sand', mode: 'light', bg: '#f6ecd9', accent: '#b8802f' },
+  { id: 'light-ice', label: 'Ice', mode: 'light', bg: '#eef6f7', accent: '#2f8fa0' },
   { id: 'dark-slate', label: 'Slate', mode: 'dark', bg: '#1e1f22', accent: '#5bb98c' },
   { id: 'dark-midnight', label: 'Midnight', mode: 'dark', bg: '#0d1117', accent: '#5b9bd5' },
-  { id: 'dark-coffee', label: 'Coffee', mode: 'dark', bg: '#161211', accent: '#d99a4e' }
+  { id: 'dark-coffee', label: 'Coffee', mode: 'dark', bg: '#161211', accent: '#d99a4e' },
+  { id: 'dark-plum', label: 'Plum', mode: 'dark', bg: '#1c1522', accent: '#b98be0' },
+  { id: 'dark-forest', label: 'Forest', mode: 'dark', bg: '#10190f', accent: '#7cc46b' },
+  { id: 'dark-ocean', label: 'Ocean', mode: 'dark', bg: '#071620', accent: '#3fc1e0' }
 ];
-const THEME_PAIRS = {};
-THEMES.filter((t) => t.mode === 'light').forEach((t, i) => {
-  const d = THEMES.filter((x) => x.mode === 'dark')[i];
-  THEME_PAIRS[t.id] = d.id;
-  THEME_PAIRS[d.id] = t.id;
-});
+// ---------- custom scrollbars ----------
+// Any element that scrolls gets a .scrollbar-active class for 3s after the
+// last scroll event (see styles.css); 'scroll' doesn't bubble, so this has
+// to listen in the capture phase to catch it on nested scrollable elements.
+(function () {
+  const HIDE_DELAY = 3000;
+  const timers = new WeakMap();
+  document.addEventListener('scroll', (e) => {
+    const el = e.target === document ? document.scrollingElement : e.target;
+    if (!el || typeof el.classList === 'undefined') return;
+    el.classList.add('scrollbar-active');
+    clearTimeout(timers.get(el));
+    timers.set(el, setTimeout(() => el.classList.remove('scrollbar-active'), HIDE_DELAY));
+  }, true);
+})();
 
 let notes = [];
 let current = null; // { file, content, meta }
@@ -31,6 +54,8 @@ let activeTag = null;
 let editorMode = 'edit';
 let currentTheme = 'light-paper';
 let firstLoadDone = false;
+let iconPickerNote = null;
+let currentView = 'notes'; // 'notes' | 'archive'
 
 const $ = (id) => document.getElementById(id);
 const grid = $('grid');
@@ -51,15 +76,64 @@ function hydrateIcons() {
   });
 }
 
+// ---------- note icon ----------
+function openIconPicker(note) {
+  iconPickerNote = note;
+  renderIconPickerGrid();
+  $('iconPickerOverlay').hidden = false;
+}
+
+function closeIconPicker() {
+  $('iconPickerOverlay').hidden = true;
+  iconPickerNote = null;
+}
+
+function renderIconPickerGrid() {
+  const wrap = $('iconPickerGrid');
+  wrap.textContent = '';
+  const active = (iconPickerNote && iconPickerNote.meta.icon) || DEFAULT_NOTE_ICON;
+  for (const name of NOTE_ICON_CHOICES) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'icon-choice' + (name === active ? ' active' : '');
+    b.title = name.replace(/-/g, ' ');
+    b.setAttribute('aria-label', name.replace(/-/g, ' '));
+    b.appendChild(icon(name));
+    b.addEventListener('click', () => selectNoteIcon(name));
+    wrap.appendChild(b);
+  }
+}
+
+async function selectNoteIcon(name) {
+  const note = iconPickerNote;
+  if (!note) return;
+  note.meta = await api.setNoteMeta(note.file, { icon: name });
+  if (current && current.file === note.file) {
+    current.meta = note.meta;
+    updateNoteIconBtn();
+  }
+  closeIconPicker();
+  renderGrid();
+}
+
+function updateNoteIconBtn() {
+  const btn = $('noteIconBtn');
+  btn.innerHTML = '';
+  btn.appendChild(icon(current.meta.icon || DEFAULT_NOTE_ICON));
+}
+
+$('closeIconPickerBtn').addEventListener('click', closeIconPicker);
+$('iconPickerOverlay').addEventListener('click', (e) => {
+  if (e.target === $('iconPickerOverlay')) closeIconPicker();
+});
+$('noteIconBtn').addEventListener('click', () => {
+  if (current) openIconPicker(current);
+});
+
 // ---------- theme ----------
 function setTheme(themeId, persist) {
   currentTheme = themeId;
   document.documentElement.dataset.theme = themeId;
-  const isDark = themeId.startsWith('dark');
-  const btn = $('themeToggleBtn');
-  btn.innerHTML = '';
-  btn.appendChild(icon(isDark ? 'moon' : 'sun'));
-  btn.title = isDark ? 'Switch to light theme' : 'Switch to dark theme';
   if (persist) api.setSettings({ theme: themeId });
 }
 
@@ -89,10 +163,39 @@ function renderThemeSwatches() {
   }
 }
 
-$('themeToggleBtn').addEventListener('click', () => {
-  setTheme(THEME_PAIRS[currentTheme] || 'dark-slate', true);
-  renderThemeSwatches();
+// ---------- nav drawer ----------
+function openDrawer() {
+  $('drawerBackdrop').classList.add('open');
+  $('navDrawer').classList.add('open');
+}
+
+function closeDrawer() {
+  $('drawerBackdrop').classList.remove('open');
+  $('navDrawer').classList.remove('open');
+}
+
+function setView(view) {
+  currentView = view;
+  activeTag = null;
+  $('navNotesBtn').classList.toggle('active', view === 'notes');
+  $('navArchiveBtn').classList.toggle('active', view === 'archive');
+  if (view === 'archive') {
+    $('emptyTitle').textContent = 'No archived notes';
+    $('emptyBody').textContent = 'Notes you archive will show up here.';
+  } else {
+    $('emptyTitle').textContent = 'No notes yet';
+    $('emptyBody').textContent = 'Create your first note, or drop .txt files into your notes folder and they will show up here.';
+  }
+  renderTagBar();
+  renderGrid();
+}
+
+$('menuBtn').addEventListener('click', () => {
+  if ($('drawerBackdrop').classList.contains('open')) closeDrawer(); else openDrawer();
 });
+$('drawerBackdrop').addEventListener('click', closeDrawer);
+$('navNotesBtn').addEventListener('click', () => { setView('notes'); closeDrawer(); });
+$('navArchiveBtn').addEventListener('click', () => { setView('archive'); closeDrawer(); });
 
 // ---------- rendering ----------
 function titleOf(file) {
@@ -114,14 +217,25 @@ function toDatetimeLocalValue(ms) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function inCurrentView(note) {
+  return currentView === 'archive' ? !!note.meta.archived : !note.meta.archived;
+}
+
 function computeTagCounts() {
   const counts = new Map();
   for (const n of notes) {
+    if (!inCurrentView(n)) continue;
     for (const t of window.KeepNotesMarkdown.extractTags(n.content)) {
       counts.set(t, (counts.get(t) || 0) + 1);
     }
   }
   return counts;
+}
+
+async function toggleArchive(note) {
+  note.meta = await api.setNoteMeta(note.file, { archived: !note.meta.archived });
+  renderTagBar();
+  renderGrid();
 }
 
 function renderTagBar() {
@@ -160,6 +274,7 @@ function renderGrid() {
   let shown = 0;
 
   for (const n of notes) {
+    if (!inCurrentView(n)) continue;
     const hay = (titleOf(n.file) + '\n' + n.content).toLowerCase();
     if (q && !hay.includes(q)) continue;
     if (activeTag && !window.KeepNotesMarkdown.extractTags(n.content).has(activeTag)) continue;
@@ -172,6 +287,17 @@ function renderGrid() {
 
     const head = document.createElement('div');
     head.className = 'note-head';
+    const iconBtn = document.createElement('button');
+    iconBtn.type = 'button';
+    iconBtn.className = 'note-icon-btn';
+    iconBtn.title = 'Change icon';
+    iconBtn.setAttribute('aria-label', 'Change note icon');
+    iconBtn.appendChild(icon(n.meta.icon || DEFAULT_NOTE_ICON));
+    iconBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openIconPicker(n);
+    });
+    head.appendChild(iconBtn);
     const h = document.createElement('h3');
     h.className = 'note-title';
     h.textContent = titleOf(n.file);
@@ -190,6 +316,17 @@ function renderGrid() {
       urgent.appendChild(icon('triangle-alert'));
       head.appendChild(urgent);
     }
+    const archiveBtn = document.createElement('button');
+    archiveBtn.type = 'button';
+    archiveBtn.className = 'note-icon-btn';
+    archiveBtn.title = n.meta.archived ? 'Unarchive' : 'Archive';
+    archiveBtn.setAttribute('aria-label', archiveBtn.title);
+    archiveBtn.appendChild(icon(n.meta.archived ? 'archive-restore' : 'archive'));
+    archiveBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleArchive(n);
+    });
+    head.appendChild(archiveBtn);
     card.appendChild(head);
 
     if (typeof n.meta.reminderAt === 'number') {
@@ -204,31 +341,11 @@ function renderGrid() {
     }
 
     const body = document.createElement('div');
-    body.className = 'note-body';
-
-    for (const line of n.content.split('\n').slice(0, 40)) {
-      const m = line.match(CHECK_RE);
-      if (m) {
-        const done = m[1].toLowerCase() === 'x';
-        const row = document.createElement('label');
-        row.className = 'check' + (done ? ' done' : '');
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = done;
-        cb.addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleLine(n, line);
-        });
-        const span = document.createElement('span');
-        span.textContent = m[2];
-        row.append(cb, span);
-        body.appendChild(row);
-      } else {
-        const p = document.createElement('div');
-        p.textContent = line;
-        body.appendChild(p);
-      }
-    }
+    body.className = 'note-body md-preview';
+    const preview = n.content.split('\n').slice(0, 40).join('\n');
+    window.KeepNotesMarkdown.renderInto(body, preview, {
+      onToggleLine: (line) => toggleLine(n, line)
+    });
     card.appendChild(body);
 
     const open = () => openEditor(n);
@@ -259,6 +376,15 @@ function updatePinBtn() {
   const pinned = !!current.meta.pinned;
   $('pinBtn').classList.toggle('is-pinned', pinned);
   $('pinBtn').title = pinned ? 'Unpin' : 'Pin';
+}
+
+function updateArchiveBtn() {
+  const archived = !!current.meta.archived;
+  const btn = $('archiveBtn');
+  btn.classList.toggle('is-archived', archived);
+  btn.innerHTML = '';
+  btn.appendChild(icon(archived ? 'archive-restore' : 'archive'));
+  btn.title = archived ? 'Unarchive' : 'Archive';
 }
 
 function updateReminderBtn() {
@@ -346,6 +472,8 @@ function openEditor(note) {
   $('editorTitle').value = titleOf(note.file);
   $('editorBody').value = note.content;
   updatePinBtn();
+  updateArchiveBtn();
+  updateNoteIconBtn();
   const ed = document.querySelector('.editor');
   ed.className = `editor card ${note.meta.color || 'paper'}`;
   renderSwatches();
@@ -508,7 +636,8 @@ $('confirmQuitBtn').addEventListener('click', () => {
 const COMMANDS = [
   { id: 'new-note', label: 'New note', icon: 'plus', run: () => $('newNoteBtn').click() },
   { id: 'settings', label: 'Open settings', icon: 'settings', run: () => openSettings() },
-  { id: 'toggle-theme', label: 'Toggle light/dark theme', icon: 'sun', run: () => $('themeToggleBtn').click() },
+  { id: 'open-archive', label: 'Open archive', icon: 'archive', run: () => setView('archive') },
+  { id: 'open-notes', label: 'Back to notes', icon: 'sticky-note', run: () => setView('notes') },
   { id: 'open-folder', label: 'Open notes folder', icon: 'folder-open', run: () => api.openFolder() }
 ];
 
@@ -578,6 +707,7 @@ async function refresh() {
 // ---------- wiring ----------
 $('newNoteBtn').addEventListener('click', async () => {
   const file = await api.createNote('Note');
+  if (currentView !== 'notes') setView('notes');
   await refresh();
   const n = notes.find((x) => x.file === file);
   if (n) openEditor(n);
@@ -612,6 +742,11 @@ $('pinBtn').addEventListener('click', async () => {
   current.meta = await api.setNoteMeta(current.file, { pinned: !current.meta.pinned });
   updatePinBtn();
   renderGrid();
+});
+
+$('archiveBtn').addEventListener('click', async () => {
+  current.meta = await api.setNoteMeta(current.file, { archived: !current.meta.archived });
+  closeEditor();
 });
 
 $('urgentBtn').addEventListener('click', async () => {
@@ -699,7 +834,9 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'Escape') {
-    if (!$('reminderOverlay').hidden) closeReminderOverlay();
+    if ($('drawerBackdrop').classList.contains('open')) closeDrawer();
+    else if (!$('iconPickerOverlay').hidden) closeIconPicker();
+    else if (!$('reminderOverlay').hidden) closeReminderOverlay();
     else if (!$('paletteOverlay').hidden) closePalette();
     else if (!$('editorOverlay').hidden) closeEditor();
     else if (!$('settingsOverlay').hidden) $('settingsOverlay').hidden = true;

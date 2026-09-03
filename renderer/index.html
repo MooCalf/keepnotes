@@ -21,17 +21,25 @@
   </div>
 
   <header class="topbar">
-    <div class="brand">
-      <span class="brand-dot"></span>
+    <button id="menuBtn" class="brand" data-icon="menu" title="Menu" aria-label="Open menu">
       <h1>KeepNotes</h1>
-    </div>
+    </button>
     <input id="search" type="search" placeholder="Search notes  (Ctrl+K for quick switcher)" autocomplete="off" />
     <div class="topbar-actions">
       <button id="newNoteBtn" class="btn btn-primary" data-icon="plus"><span class="btn-label">New note</span></button>
-      <button id="themeToggleBtn" class="btn btn-ghost icon-btn" title="Toggle light/dark" aria-label="Toggle theme" data-icon="sun"></button>
       <button id="settingsBtn" class="btn btn-ghost icon-btn" title="Settings" aria-label="Settings" data-icon="settings"></button>
     </div>
   </header>
+
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+  <nav id="navDrawer" class="drawer" aria-label="Navigation">
+    <div class="drawer-header">
+      <span class="brand-dot"></span>
+      <span class="drawer-title">KeepNotes</span>
+    </div>
+    <button type="button" id="navNotesBtn" class="drawer-item active" data-icon="sticky-note">Notes</button>
+    <button type="button" id="navArchiveBtn" class="drawer-item" data-icon="archive">Archive</button>
+  </nav>
 
   <div id="tagBar" class="tagbar" hidden></div>
 
@@ -42,14 +50,17 @@
   <main id="grid" class="grid" aria-live="polite"></main>
 
   <div id="empty" class="empty" hidden>
-    <p class="empty-title">No notes yet</p>
-    <p>Create your first note, or drop .txt files into your notes folder and they will show up here.</p>
+    <p id="emptyTitle" class="empty-title">No notes yet</p>
+    <p id="emptyBody">Create your first note, or drop .txt files into your notes folder and they will show up here.</p>
   </div>
 
   <!-- Editor -->
   <div id="editorOverlay" class="overlay" hidden>
     <div class="editor card" role="dialog" aria-modal="true">
-      <input id="editorTitle" class="editor-title" placeholder="Title" maxlength="60" />
+      <div class="editor-title-row">
+        <button id="noteIconBtn" class="btn btn-ghost icon-btn" title="Change icon" aria-label="Change note icon"></button>
+        <input id="editorTitle" class="editor-title" placeholder="Title" maxlength="60" />
+      </div>
 
       <div class="editor-tabs">
         <button id="editTabBtn" class="tab active" data-icon="pencil">Edit</button>
@@ -69,6 +80,7 @@
         <div class="editor-spacer"></div>
         <button id="imageBtn" class="btn btn-ghost icon-btn" title="Insert image" data-icon="image"></button>
         <button id="pinBtn" class="btn btn-ghost icon-btn" title="Pin" data-icon="pin"></button>
+        <button id="archiveBtn" class="btn btn-ghost icon-btn" title="Archive" data-icon="archive"></button>
         <button id="reminderBtn" class="btn btn-ghost icon-btn" title="Set reminder" data-icon="bell"></button>
         <button id="urgentBtn" class="btn btn-ghost icon-btn" title="Mark urgent" data-icon="triangle-alert"></button>
         <button id="checklistBtn" class="btn btn-ghost" data-icon="square-check">Checklist line</button>
@@ -188,6 +200,17 @@
         <div class="editor-spacer"></div>
         <button id="reminderCancelBtn" class="btn btn-ghost">Cancel</button>
         <button id="reminderSaveBtn" class="btn btn-primary" data-icon="bell">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Icon picker -->
+  <div id="iconPickerOverlay" class="overlay" hidden>
+    <div class="card icon-picker-card" role="dialog" aria-modal="true">
+      <h2>Choose an icon</h2>
+      <div id="iconPickerGrid" class="icon-picker-grid"></div>
+      <div class="settings-footer">
+        <button id="closeIconPickerBtn" class="btn btn-primary">Done</button>
       </div>
     </div>
   </div>
