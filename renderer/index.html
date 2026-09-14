@@ -43,6 +43,13 @@
 
   <div id="tagBar" class="tagbar" hidden></div>
 
+  <div id="updateBanner" class="update-banner" hidden>
+    <span data-icon="download"></span>
+    <span id="updateBannerText">A new version of KeepNotes is ready.</span>
+    <button id="updateRestartBtn" class="btn btn-primary" data-icon="rotate-cw">Restart to update</button>
+    <button id="updateDismissBtn" class="btn btn-ghost icon-btn" title="Dismiss" data-icon="x"></button>
+  </div>
+
   <div id="loading" class="loading" hidden>
     <div class="spinner"></div>
   </div>
@@ -195,6 +202,13 @@
       <h2>Set reminder</h2>
       <p class="reminder-sub">Pick a date and time. You'll get a Windows notification about this note when it's due.</p>
       <input type="datetime-local" id="reminderTimeInput" class="reminder-input" />
+      <select id="reminderRepeatInput" class="select reminder-input">
+        <option value="none">Does not repeat</option>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+        <option value="yearly">Yearly</option>
+      </select>
       <div class="reminder-actions">
         <button id="reminderClearBtn" class="btn btn-ghost" data-icon="x">Clear reminder</button>
         <div class="editor-spacer"></div>

@@ -21,6 +21,7 @@ const { pathToFileURL } = require('url');
 
 let win = null;
 let tray = null;
+let autoUpdater = null; // lazily required in setupAutoUpdater(); stays null in dev
 let isQuitting = false;
 let widgetActive = false;
 let previousBounds = null;
@@ -202,7 +203,51 @@ async function writeMeta(meta) {
 // at any time and the note count is small - polling is simpler and just as
 // accurate for a minutes-granularity feature like this.
 const REMINDER_POLL_MS = 20000;
+const REPEAT_OPTIONS = new Set(['none', 'daily', 'weekly', 'monthly', 'yearly']);
 let reminderTimer = null;
+
+// Advances `ms` by one repeat interval, clamping day-of-month overflow
+// (e.g. Jan 31 + 1 month lands on the last day of Feb, not Mar 3) so
+// monthly/yearly reminders behave the way Google Keep-style repeats do.
+function addRepeatInterval(ms, repeat) {
+  const d = new Date(ms);
+  switch (repeat) {
+    case 'daily':
+      d.setDate(d.getDate() + 1);
+      return d.getTime();
+    case 'weekly':
+      d.setDate(d.getDate() + 7);
+      return d.getTime();
+    case 'monthly': {
+      const day = d.getDate();
+      d.setDate(1);
+      d.setMonth(d.getMonth() + 1);
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(day, lastDay));
+      return d.getTime();
+    }
+    case 'yearly': {
+      const month = d.getMonth();
+      d.setFullYear(d.getFullYear() + 1);
+      if (d.getMonth() !== month) d.setDate(0); // Feb 29 -> Feb 28 on non-leap years
+      return d.getTime();
+    }
+    default:
+      return null;
+  }
+}
+
+// If the app was closed through one or more occurrences, skip forward to
+// the next one that's still in the future rather than notifying once per
+// missed occurrence.
+function nextRepeatAfter(ms, repeat, now) {
+  let next = addRepeatInterval(ms, repeat);
+  if (next === null) return null;
+  while (next <= now) {
+    next = addRepeatInterval(next, repeat);
+  }
+  return next;
+}
 
 function fireReminderNotification(fileName) {
   if (!Notification.isSupported()) return;
@@ -245,7 +290,12 @@ async function checkReminders() {
         continue;
       }
       fireReminderNotification(fileName);
-      meta[fileName] = { ...m, reminderNotified: true };
+      if (m.reminderRepeat && m.reminderRepeat !== 'none') {
+        const next = nextRepeatAfter(m.reminderAt, m.reminderRepeat, now);
+        meta[fileName] = { ...m, reminderAt: next, reminderNotified: false };
+      } else {
+        meta[fileName] = { ...m, reminderNotified: true };
+      }
       changed = true;
     }
     if (changed) await writeMeta(meta);
@@ -257,6 +307,47 @@ async function checkReminders() {
 function startReminderScheduler() {
   checkReminders();
   reminderTimer = setInterval(checkReminders, REMINDER_POLL_MS);
+}
+
+// ---------- auto-update ----------
+// Checks GitHub Releases (see build.publish in package.json) for a newer
+// version. Only meaningful in a packaged build - dev runs have no update
+// feed and checkForUpdates() would just error. Offline checks fail quietly
+// via the 'error' event; the next scheduled check (or app restart) retries.
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+  autoUpdater = require('electron-updater').autoUpdater;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-downloaded', (info) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('app:update-ready', info.version);
+    }
+    if (Notification.isSupported()) {
+      const notification = new Notification({
+        title: 'KeepNotes update ready',
+        body: `Version ${info.version} has been downloaded. Restart to install it.`,
+        silent: false
+      });
+      notification.on('click', () => {
+        isQuitting = true;
+        autoUpdater.quitAndInstall();
+      });
+      notification.show();
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('Auto-update check failed', err);
+  });
+
+  const check = () => autoUpdater.checkForUpdates().catch((err) => console.error('Update check failed', err));
+  check();
+  setInterval(check, UPDATE_CHECK_INTERVAL_MS);
 }
 
 // ---------- notes cache ----------
@@ -413,10 +504,20 @@ function registerIpc() {
       // Any change to the reminder time re-arms it so it can fire again.
       clean.reminderNotified = false;
     }
+    if (patch && 'reminderRepeat' in patch) {
+      if (typeof patch.reminderRepeat === 'string' && REPEAT_OPTIONS.has(patch.reminderRepeat)) {
+        clean.reminderRepeat = patch.reminderRepeat;
+      } else if (patch.reminderRepeat == null) {
+        clean.reminderRepeat = 'none';
+      }
+    }
     const next = { ...cur, ...clean };
     if (next.reminderAt == null) {
       delete next.reminderAt;
       delete next.reminderNotified;
+      delete next.reminderRepeat;
+    } else if (!next.reminderRepeat || next.reminderRepeat === 'none') {
+      delete next.reminderRepeat;
     }
     meta[fileName] = next;
     await writeMeta(meta);
@@ -460,6 +561,13 @@ function registerIpc() {
       win.hide();
     }
     // 'cancel': window is already visible, nothing to do
+  });
+
+  // ---- updates ----
+  ipcMain.handle('app:installUpdate', () => {
+    if (!autoUpdater) return;
+    isQuitting = true;
+    autoUpdater.quitAndInstall();
   });
 
   // ---- window controls (used by the custom titlebar in borderless mode) ----
@@ -595,6 +703,7 @@ if (!gotLock) {
     createWindow();
     createTray();
     startReminderScheduler();
+    setupAutoUpdater();
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

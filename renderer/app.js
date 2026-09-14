@@ -203,6 +203,8 @@ function titleOf(file) {
 }
 
 // ---------- reminders ----------
+const REPEAT_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
+
 function formatReminder(ms) {
   const d = new Date(ms);
   const now = new Date();
@@ -337,6 +339,10 @@ function renderGrid() {
       const span = document.createElement('span');
       span.textContent = formatReminder(n.meta.reminderAt);
       rem.appendChild(span);
+      if (REPEAT_LABELS[n.meta.reminderRepeat]) {
+        rem.appendChild(icon('repeat', 'note-reminder-repeat'));
+        rem.title = `Repeats ${REPEAT_LABELS[n.meta.reminderRepeat].toLowerCase()}`;
+      }
       card.appendChild(rem);
     }
 
@@ -390,7 +396,12 @@ function updateArchiveBtn() {
 function updateReminderBtn() {
   const has = typeof current.meta.reminderAt === 'number';
   $('reminderBtn').classList.toggle('has-reminder', has);
-  $('reminderBtn').title = has ? `Reminder: ${formatReminder(current.meta.reminderAt)}` : 'Set reminder';
+  if (!has) {
+    $('reminderBtn').title = 'Set reminder';
+    return;
+  }
+  const repeat = REPEAT_LABELS[current.meta.reminderRepeat];
+  $('reminderBtn').title = `Reminder: ${formatReminder(current.meta.reminderAt)}` + (repeat ? ` (repeats ${repeat.toLowerCase()})` : '');
 }
 
 function updateUrgentBtn() {
@@ -620,6 +631,14 @@ api.onReminderOpen(async (_e, fileName) => {
   if (n) openEditor(n);
 });
 
+// ---------- update banner ----------
+api.onUpdateReady((_e, version) => {
+  $('updateBannerText').textContent = `KeepNotes ${version} is ready to install.`;
+  $('updateBanner').hidden = false;
+});
+$('updateRestartBtn').addEventListener('click', () => api.installUpdate());
+$('updateDismissBtn').addEventListener('click', () => { $('updateBanner').hidden = true; });
+
 $('confirmCancelBtn').addEventListener('click', () => {
   $('closeConfirmOverlay').hidden = true;
   api.respondCloseAction('cancel');
@@ -760,6 +779,7 @@ $('reminderBtn').addEventListener('click', () => {
   const input = $('reminderTimeInput');
   const hasReminder = typeof current.meta.reminderAt === 'number';
   input.value = toDatetimeLocalValue(hasReminder ? current.meta.reminderAt : Date.now() + 60 * 60 * 1000);
+  $('reminderRepeatInput').value = current.meta.reminderRepeat || 'none';
   $('reminderClearBtn').hidden = !hasReminder;
   $('reminderOverlay').hidden = false;
   input.focus();
@@ -779,7 +799,8 @@ $('reminderSaveBtn').addEventListener('click', async () => {
   if (!val) return;
   const ms = new Date(val).getTime();
   if (Number.isNaN(ms)) return;
-  current.meta = await api.setNoteMeta(current.file, { reminderAt: ms });
+  const repeat = $('reminderRepeatInput').value;
+  current.meta = await api.setNoteMeta(current.file, { reminderAt: ms, reminderRepeat: repeat });
   updateReminderBtn();
   renderGrid();
   closeReminderOverlay();

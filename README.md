@@ -1,6 +1,8 @@
 # KeepNotes
 
-A simple, secure sticky-notes desktop app for Windows. Google Keep style card grid, checklists, colors, pinning, search. Every note is a plain `.txt` file in a folder you choose, so your notes are always readable without the app.
+A simple, secure sticky-notes desktop app for Windows. Google Keep style card grid, checklists, colors, pinning, search, and reminders that can repeat daily/weekly/monthly/yearly. Every note is a plain `.txt` file in a folder you choose, so your notes are always readable without the app.
+
+The app checks for updates automatically whenever you have an internet connection and installs them on your next restart - see [Auto-updates](#auto-updates) below.
 
 
 ## Install 
@@ -10,7 +12,7 @@ A simple, secure sticky-notes desktop app for Windows. Google Keep style card gr
 OR
 
 
-1. Download the [KeepNotes Setup](https://github.com/MooCalf/keepnotes/raw/main/KeepNotes-Setup-1.0.2.exe) exe file
+1. Download the [KeepNotes Setup](https://github.com/MooCalf/keepnotes/raw/main/KeepNotes-Setup-1.0.3.exe) exe file
 2. Run it, pick an install location
 3. Your done!
 
@@ -22,6 +24,7 @@ Requires Node.js 20+.
 npm install
 npm start        # run the app in dev mode
 npm run dist     # build the Windows installer into dist/
+npm run release  # build AND publish to GitHub Releases (needs GH_TOKEN env var); CI does this for you on a tag push
 npm run icons    # regenerate renderer/icons.js
 ```
 
@@ -39,6 +42,10 @@ powershell -ExecutionPolicy Bypass -File scripts\make-shortcut.ps1
 ```
 
 Right-click the new Desktop icon and choose **Pin to taskbar** to pin it. The shortcut points at `node_modules\electron\dist\electron.exe`, so re-run it if you move or delete the project folder!
+
+## Auto-updates
+
+Packaged builds check `github.com/MooCalf/keepnotes` releases for a newer version on startup and every 4 hours while online, download it in the background, and show a "Restart to update" banner (plus a system notification) once it's ready. No action is needed to enable this - it only requires that releases are published with `npm run release` (see below) so a `latest.yml` file is attached alongside the installer, since that's what the updater reads to know a new version exists. Offline checks just fail silently and retry later. Dev runs (`npm start`) never check for updates.
 
 ## Publish to GitHub and get an installer built for you
 

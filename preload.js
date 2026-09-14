@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('keepnotes', {
   onConfirmClose: (callback) => ipcRenderer.on('app:confirm-close', callback),
   onReminderOpen: (callback) => ipcRenderer.on('reminder:open-note', callback),
 
+  onUpdateReady: (callback) => ipcRenderer.on('app:update-ready', callback),
+  installUpdate: () => ipcRenderer.invoke('app:installUpdate'),
+
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize'),
   closeWindow: () => ipcRenderer.invoke('window:close')

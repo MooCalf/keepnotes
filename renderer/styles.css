@@ -313,6 +313,17 @@ html, body {
 /* ---------- tag bar ---------- */
 .tagbar { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 18px 12px; }
 .tagbar[hidden] { display: none; }
+
+.update-banner {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 18px 12px; padding: 10px 14px;
+  background: var(--card-sun); border: 1px solid var(--line);
+  border-radius: var(--radius); color: var(--ink); font-size: 13.5px;
+}
+.update-banner[hidden] { display: none; }
+.update-banner .icon { width: 16px; height: 16px; flex-shrink: 0; }
+.update-banner span:first-child { display: flex; }
+#updateBannerText { flex: 1; }
 .tag-chip {
   font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 999px;
   padding: 5px 12px; cursor: pointer; background: var(--card-paper); color: var(--ink-soft);

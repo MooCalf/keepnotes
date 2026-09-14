@@ -1,7 +1,7 @@
 {
   "name": "keepnotes-desktop",
   "productName": "KeepNotes",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A simple, secure sticky-notes and checklist desktop app that stores everything as plain .txt files.",
   "main": "main.js",
   "author": "MooCalf",
@@ -9,6 +9,7 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win",
+    "release": "electron-builder --win --publish always",
     "icons": "node scripts/sync-icons.js"
   },
   "devDependencies": {
@@ -43,6 +44,14 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "artifactName": "KeepNotes-Setup-${version}.exe"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "MooCalf",
+      "repo": "keepnotes"
     }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
