@@ -174,6 +174,166 @@ html, body {
   font-size: 15px;
 }
 
+body {
+  display: flex;
+  flex-direction: column;
+}
+.custom-titlebar, .topbar, .tagbar, .update-banner, .loading { flex: none; }
+
+/* ---------- cluster stack ----------
+   Widget mode stacks clusters into a column (window grows taller); normal
+   mode lines them up into a row beside Notes (window grows wider). Each
+   panel's flex-basis is set from JS to match the size main.js used to
+   compute the window bounds, so panel sizes and window size stay in sync. */
+#clusterStack {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+#clusterStack[data-axis="column"] { flex-direction: column; }
+#clusterStack[data-axis="row"] { flex-direction: row; }
+
+.cluster-panel {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.cluster-panel[hidden] { display: none; }
+
+/* A thin draggable bar between two adjacent visible panels - dragging it
+   trades size between the panel before and after it (see startClusterResize
+   in app.js), replacing the old static border between panels. */
+.cluster-divider {
+  flex: none;
+  position: relative;
+  background: var(--line);
+}
+#clusterStack[data-axis="row"] .cluster-divider { width: 1px; cursor: col-resize; }
+#clusterStack[data-axis="column"] .cluster-divider { height: 1px; cursor: row-resize; }
+.cluster-divider::before {
+  content: ''; position: absolute;
+}
+#clusterStack[data-axis="row"] .cluster-divider::before { top: 0; bottom: 0; left: -4px; width: 9px; }
+#clusterStack[data-axis="column"] .cluster-divider::before { left: 0; right: 0; top: -4px; height: 9px; }
+.cluster-divider:hover, .cluster-divider:active { background: var(--accent); }
+
+.cluster-placeholder {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.cluster-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 8px;
+}
+.cluster-header-title {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 650; font-size: 14.5px;
+}
+.cluster-header-title .icon { color: var(--ink-soft); width: 15px; height: 15px; }
+
+/* ---------- calendar cluster ---------- */
+.cal-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 10px 6px; }
+.cal-month-label { font-weight: 600; font-size: 13.5px; }
+
+.cal-weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  padding: 0 10px; font-size: 11px; color: var(--ink-soft); text-align: center;
+}
+
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 3px; padding: 4px 10px 10px;
+}
+.cal-day {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; border-radius: 8px; cursor: pointer;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  color: var(--ink);
+}
+.cal-day:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.cal-day.outside { color: var(--ink-soft); opacity: 0.45; }
+.cal-day.today { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 700; }
+/* A day with events gets its whole box tinted instead of a small dot -
+   color-default (no explicit event color) uses a soft accent tint. */
+.cal-day.color-default { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 600; }
+.cal-day.color-paper  { background: var(--card-paper); font-weight: 600; }
+.cal-day.color-sun    { background: var(--card-sun); font-weight: 600; }
+.cal-day.color-mint   { background: var(--card-mint); font-weight: 600; }
+.cal-day.color-sky    { background: var(--card-sky); font-weight: 600; }
+.cal-day.color-blush  { background: var(--card-blush); font-weight: 600; }
+.cal-day.color-lilac  { background: var(--card-lilac); font-weight: 600; }
+.cal-day.search-match { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.cal-event-list { padding: 4px 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.cal-event-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 10px; cursor: pointer;
+  background: var(--card-paper); border: 1px solid var(--line);
+}
+.cal-event-item:hover { border-color: var(--accent); }
+.cal-event-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+.cal-event-info { flex: 1; min-width: 0; }
+.cal-event-title { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-event-when { font-size: 11.5px; color: var(--ink-soft); }
+.cal-event-empty { padding: 10px; color: var(--ink-soft); font-size: 12.5px; text-align: center; }
+
+.cal-event-card { width: min(420px, 100%); }
+.cal-event-row { display: flex; gap: 8px; margin: 8px 0; }
+.cal-event-row .reminder-input { flex: 1; }
+.cal-event-notes { min-height: 80px; margin-bottom: 8px; }
+
+/* ---------- gallery cluster ---------- */
+.gal-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px; padding: 0 14px 16px;
+}
+.gal-grid[hidden] { display: none; }
+.gal-thumb {
+  position: relative; aspect-ratio: 1 / 1; border-radius: 10px; overflow: hidden;
+  cursor: pointer; background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border: 1px solid var(--line);
+}
+.gal-thumb img, .gal-thumb canvas, .gal-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gal-thumb .icon { width: 22px; height: 22px; color: var(--ink-soft); }
+.gal-thumb-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.gal-thumb-pin {
+  position: absolute; top: 4px; right: 4px; color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+}
+.gal-thumb-pin .icon { width: 13px; height: 13px; }
+.gal-thumb-video-badge {
+  position: absolute; bottom: 4px; right: 4px; color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+}
+.gal-thumb-video-badge .icon { width: 14px; height: 14px; }
+.gal-thumb-edit-btn {
+  position: absolute; bottom: 4px; left: 4px; z-index: 1;
+  width: 22px; height: 22px; padding: 0; border: none; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.45); color: #fff; cursor: pointer;
+  opacity: 0.75; transition: opacity 120ms ease;
+}
+.gal-thumb:hover .gal-thumb-edit-btn,
+.gal-thumb-edit-btn:focus-visible { opacity: 1; }
+.gal-thumb-edit-btn:hover { background: rgba(0, 0, 0, 0.65); }
+.gal-thumb-edit-btn .icon { width: 12px; height: 12px; color: #fff; margin: 0; }
+
+.gal-viewer-card { width: min(460px, 100%); }
+.gal-viewer-meta { font-size: 12px; color: var(--ink-soft); margin: -4px 0 8px; }
+.gal-tags-input {
+  display: block; width: 100%; margin-bottom: 10px;
+  padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); font: inherit; font-size: 12.5px;
+}
+.gal-tags-input:focus { outline: none; border-color: var(--accent); }
+
 /* ---------- scrollbars ----------
    Slim, theme-colored, and invisible until the element is actually
    scrolled; JS toggles .scrollbar-active on the scrolled element and
@@ -233,6 +393,19 @@ html, body {
 .titlebar-btn:hover { background: var(--line); }
 .titlebar-close:hover { background: var(--danger); color: #fff; }
 
+/* ---------- popped-out cluster window ----------
+   A window dedicated to a single cluster (see main.js createClusterWindow /
+   app.js applyPoppedLayout) hides the whole multi-cluster chrome and shows
+   just that cluster's own panel with a small header in place of it. */
+body.popped-mode .topbar,
+body.popped-mode #drawerBackdrop,
+body.popped-mode #navDrawer,
+body.popped-mode #tagBar,
+body.popped-mode #updateBanner {
+  display: none;
+}
+.popped-header { border-bottom: 1px solid var(--line); }
+
 /* ---------- top bar ---------- */
 .topbar {
   position: sticky;
@@ -255,6 +428,7 @@ html, body {
 .brand:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
 .brand .icon { width: 18px; height: 18px; color: var(--ink-soft); }
 .brand h1 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: 0.1px; }
+.app-version { font-size: 11.5px; font-weight: 600; color: var(--ink-soft); }
 .brand-dot {
   width: 14px; height: 14px; border-radius: 4px;
   background: linear-gradient(135deg, var(--card-sun), var(--accent));
@@ -275,6 +449,40 @@ html, body {
 #search:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
 
 .topbar-actions { margin-left: auto; display: flex; gap: 8px; flex: none; }
+
+/* ---------- add menu ---------- */
+.add-menu-wrap { position: relative; }
+.add-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 10;
+  width: 240px; padding: 6px;
+  background: var(--card-paper); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+.add-menu[hidden] { display: none; }
+.add-menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  font: inherit; text-align: left; border: none; background: transparent; color: var(--ink);
+  padding: 9px 10px; border-radius: 8px; cursor: pointer;
+}
+.add-menu-item:hover, .add-menu-item:focus-visible { background: var(--bg); outline: none; }
+.add-menu-item .icon { color: var(--ink-soft); width: 18px; height: 18px; }
+.add-menu-item-text { display: flex; flex-direction: column; gap: 1px; }
+.add-menu-item-title { font-weight: 600; font-size: 13.5px; }
+.add-menu-item-sub { font-size: 11.5px; color: var(--ink-soft); }
+
+/* ---------- add files (gallery import) ---------- */
+.add-files-card { width: min(460px, 100%); }
+.add-files-dropzone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  text-align: center; padding: 36px 20px; margin-bottom: 4px;
+  border: 2px dashed var(--line); border-radius: 12px; cursor: pointer;
+  color: var(--ink-soft); transition: border-color 120ms ease, background-color 120ms ease;
+}
+.add-files-dropzone:hover, .add-files-dropzone:focus-visible { border-color: var(--accent); outline: none; }
+.add-files-dropzone.drag-over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.add-files-dropzone .icon { width: 30px; height: 30px; margin-bottom: 4px; color: var(--ink-soft); }
+.add-files-dropzone strong { color: var(--ink); font-size: 14px; }
+.add-files-dropzone span:last-child { font-size: 12.5px; }
 
 /* ---------- nav drawer ---------- */
 .drawer-backdrop {
@@ -354,6 +562,8 @@ html, body {
 }
 .btn[hidden] { display: none; }
 .btn:hover { filter: brightness(0.97); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled:hover { filter: none; }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .btn-ghost { background: transparent; }
@@ -535,6 +745,10 @@ html, body {
   border: 1px solid rgba(43,42,38,.18); cursor: pointer; padding: 0;
 }
 .swatch.active { outline: 2px solid var(--accent); outline-offset: 1px; }
+.swatch-default {
+  background: var(--bg);
+  border: 1px dashed var(--ink-soft);
+}
 
 /* settings */
 .settings h2 { margin: 2px 0 14px; font-size: 18px; }
@@ -571,6 +785,20 @@ html, body {
   border-radius: 10px; background: var(--card-paper); color: var(--ink); margin-bottom: 16px;
 }
 .reminder-actions { display: flex; align-items: center; gap: 8px; }
+
+.cluster-toggle-list { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+.cluster-toggle-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 2px; cursor: pointer;
+}
+.cluster-toggle-row > span { display: flex; align-items: center; gap: 9px; font-size: 14px; }
+.cluster-toggle-row .icon { color: var(--ink-soft); }
+/* A popped-out cluster's switch is disabled too (see renderClusterSettings),
+   but :not(.popped) keeps that row from getting the same "unavailable" dim
+   treatment as one disabled by the max-clusters cap - it's fully usable,
+   just via the Pop out/in button instead of the switch. */
+.cluster-toggle-row:has(input:disabled):not(.popped) { opacity: 0.5; cursor: not-allowed; }
+.cluster-pop-btn { flex: none; padding: 5px 10px; font-size: 12.5px; }
 
 .folder-row { display: flex; align-items: center; gap: 8px; width: 100%; }
 .folder-row code {
@@ -627,7 +855,7 @@ html, body {
   .grid { padding: 10px; column-gap: 10px; }
   .tagbar { padding: 0 10px 10px; }
   .btn-label { display: none; }
-  #newNoteBtn { width: 36px; padding: 0; justify-content: center; }
+  #addBtn { width: 36px; padding: 0; justify-content: center; }
   .overlay { padding: 10px; }
   .card { padding: 12px; }
 }

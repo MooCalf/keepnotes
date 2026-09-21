@@ -9,7 +9,8 @@ const ICONS = [
   'settings', 'sun', 'moon', 'image', 'pin', 'pin-off', 'tag', 'hash',
   'link', 'search', 'plus', 'trash-2', 'x', 'minimize-2', 'maximize-2', 'pencil', 'eye',
   'command', 'palette', 'folder-open', 'square-check', 'check', 'bell', 'triangle-alert', 'repeat',
-  'download', 'rotate-cw',
+  'download', 'rotate-cw', 'chevron-left', 'chevron-right', 'video',
+  'file-plus', 'upload-cloud', 'external-link',
   // note icon picker choices
   'sticky-note', 'book-open', 'briefcase', 'heart', 'star', 'lightbulb', 'flag', 'coffee',
   'music', 'code', 'graduation-cap', 'shopping-cart', 'plane', 'home', 'dumbbell', 'utensils',

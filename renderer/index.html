@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: keepnotes-asset:; font-src 'self'" />
+        content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: keepnotes-asset: keepnotes-gallery:; media-src keepnotes-gallery:; font-src 'self'" />
   <title>KeepNotes</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -11,7 +11,7 @@
   <div id="customTitlebar" class="custom-titlebar" hidden>
     <div class="custom-titlebar-drag">
       <span class="brand-dot"></span>
-      <span class="custom-titlebar-title">KeepNotes</span>
+      <span id="customTitlebarTitle" class="custom-titlebar-title">KeepNotes</span>
     </div>
     <div class="custom-titlebar-controls">
       <button id="winMinBtn" class="titlebar-btn" data-icon="minimize-2" aria-label="Minimize"></button>
@@ -23,10 +23,33 @@
   <header class="topbar">
     <button id="menuBtn" class="brand" data-icon="menu" title="Menu" aria-label="Open menu">
       <h1>KeepNotes</h1>
+      <span id="appVersion" class="app-version"></span>
     </button>
-    <input id="search" type="search" placeholder="Search notes  (Ctrl+K for quick switcher)" autocomplete="off" />
+    <input id="search" type="search" placeholder="Search notes, events, files...  (Ctrl+K for quick switcher)" autocomplete="off" />
     <div class="topbar-actions">
-      <button id="newNoteBtn" class="btn btn-primary" data-icon="plus"><span class="btn-label">New note</span></button>
+      <div class="add-menu-wrap">
+        <button id="addBtn" class="btn btn-primary" data-icon="plus" aria-haspopup="true" aria-expanded="false"><span class="btn-label">Add</span></button>
+        <div id="addMenu" class="add-menu" hidden>
+          <button type="button" id="addNoteOption" class="add-menu-item" data-icon="sticky-note">
+            <span class="add-menu-item-text">
+              <span class="add-menu-item-title">Note</span>
+              <span class="add-menu-item-sub">Write a quick note</span>
+            </span>
+          </button>
+          <button type="button" id="addEventOption" class="add-menu-item" data-icon="calendar">
+            <span class="add-menu-item-text">
+              <span class="add-menu-item-title">Event</span>
+              <span class="add-menu-item-sub">Add a date to your calendar</span>
+            </span>
+          </button>
+          <button type="button" id="addFileOption" class="add-menu-item" data-icon="file-plus">
+            <span class="add-menu-item-text">
+              <span class="add-menu-item-title">File</span>
+              <span class="add-menu-item-sub">Import a photo or video</span>
+            </span>
+          </button>
+        </div>
+      </div>
       <button id="settingsBtn" class="btn btn-ghost icon-btn" title="Settings" aria-label="Settings" data-icon="settings"></button>
     </div>
   </header>
@@ -39,6 +62,7 @@
     </div>
     <button type="button" id="navNotesBtn" class="drawer-item active" data-icon="sticky-note">Notes</button>
     <button type="button" id="navArchiveBtn" class="drawer-item" data-icon="archive">Archive</button>
+    <button type="button" id="navPinnedBtn" class="drawer-item" data-icon="pin">Pinned Images</button>
   </nav>
 
   <div id="tagBar" class="tagbar" hidden></div>
@@ -54,11 +78,50 @@
     <div class="spinner"></div>
   </div>
 
-  <main id="grid" class="grid" aria-live="polite"></main>
+  <div id="clusterStack">
+    <section class="cluster-panel" data-cluster="notes">
+      <main id="grid" class="grid" aria-live="polite"></main>
 
-  <div id="empty" class="empty" hidden>
-    <p id="emptyTitle" class="empty-title">No notes yet</p>
-    <p id="emptyBody">Create your first note, or drop .txt files into your notes folder and they will show up here.</p>
+      <div id="empty" class="empty" hidden>
+        <p id="emptyTitle" class="empty-title">No notes yet</p>
+        <p id="emptyBody">Create your first note, or drop .txt files into your notes folder and they will show up here.</p>
+      </div>
+
+      <div id="pinnedGrid" class="gal-grid" hidden></div>
+      <div id="pinnedEmpty" class="empty" hidden>
+        <p class="empty-title">No pinned images yet</p>
+        <p>Open an image or video in the Gallery and pin it to have it show up here.</p>
+      </div>
+    </section>
+
+    <section class="cluster-panel" data-cluster="calendar" hidden>
+      <div class="cluster-header">
+        <span class="cluster-header-title" data-icon="calendar">Calendar</span>
+        <button type="button" id="calAddEventBtn" class="btn btn-ghost icon-btn" title="Add event" aria-label="Add event" data-icon="plus"></button>
+      </div>
+      <div class="cal-nav">
+        <button type="button" id="calPrevBtn" class="btn btn-ghost icon-btn" aria-label="Previous month" data-icon="chevron-left"></button>
+        <div id="calMonthLabel" class="cal-month-label"></div>
+        <button type="button" id="calNextBtn" class="btn btn-ghost icon-btn" aria-label="Next month" data-icon="chevron-right"></button>
+      </div>
+      <div class="cal-weekdays">
+        <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+      <div id="calEventList" class="cal-event-list"></div>
+    </section>
+
+    <section class="cluster-panel" data-cluster="gallery" hidden>
+      <div class="cluster-header">
+        <span class="cluster-header-title" data-icon="image">Gallery</span>
+        <button type="button" id="galFolderBtn" class="btn btn-ghost icon-btn" title="Gallery folder" aria-label="Change gallery folder" data-icon="folder-open"></button>
+      </div>
+      <div id="galGrid" class="gal-grid"></div>
+      <div id="galEmpty" class="empty" hidden>
+        <p class="empty-title">No media found</p>
+        <p>Point the Gallery at a folder with photos or videos in Settings.</p>
+      </div>
+    </section>
   </div>
 
   <!-- Editor -->
@@ -136,10 +199,16 @@
       <label class="setting-row">
         <span>
           <strong>Widget mode</strong>
-          <small>Small corner panel, hidden from the taskbar and Alt-Tab</small>
+          <small>Small corner panel, hidden from the taskbar and Alt-Tab. Clusters stack vertically instead of side by side.</small>
         </span>
         <input type="checkbox" id="optWidget" class="switch" />
       </label>
+
+      <div class="setting-row column">
+        <strong>Clusters</strong>
+        <small id="clusterCapNote">Choose what shows in the app window.</small>
+        <div class="cluster-toggle-list" id="clusterToggleList"></div>
+      </div>
 
       <label class="setting-row">
         <span>
@@ -174,6 +243,16 @@
           <code id="folderPath"></code>
           <button id="changeFolderBtn" class="btn btn-ghost">Change</button>
           <button id="openFolderBtn" class="btn btn-ghost">Open</button>
+        </div>
+      </div>
+
+      <div class="setting-row column">
+        <strong>Gallery folder</strong>
+        <small>Defaults to your Pictures and Videos folders. Pick one folder to scan instead.</small>
+        <div class="folder-row">
+          <code id="galleryFolderPath">Pictures + Videos (default)</code>
+          <button id="changeGalleryFolderBtn" class="btn btn-ghost">Change</button>
+          <button id="resetGalleryFolderBtn" class="btn btn-ghost">Use default</button>
         </div>
       </div>
 
@@ -229,6 +308,75 @@
     </div>
   </div>
 
+  <!-- Calendar event editor -->
+  <div id="calEventOverlay" class="overlay" hidden>
+    <div class="card cal-event-card" role="dialog" aria-modal="true">
+      <h2 id="calEventHeading">New event</h2>
+      <input id="calEventTitle" class="editor-title" placeholder="Event title" maxlength="120" />
+      <div class="cal-event-row">
+        <input type="date" id="calEventDate" class="reminder-input" />
+        <input type="time" id="calEventTime" class="reminder-input" />
+      </div>
+      <div class="setting-row column">
+        <strong>Color</strong>
+        <div class="swatches" id="calEventSwatches"></div>
+      </div>
+      <textarea id="calEventNotes" class="editor-body cal-event-notes" placeholder="Notes (optional)"></textarea>
+      <div class="setting-row column">
+        <strong>Reminder</strong>
+        <input type="datetime-local" id="calEventReminder" class="reminder-input" />
+        <select id="calEventRepeat" class="select reminder-input">
+          <option value="none">Does not repeat</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+      <div class="reminder-actions">
+        <button id="calEventDeleteBtn" class="btn btn-danger icon-btn" title="Delete event" data-icon="trash-2" hidden></button>
+        <div class="editor-spacer"></div>
+        <button id="calEventCancelBtn" class="btn btn-ghost">Cancel</button>
+        <button id="calEventSaveBtn" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add files (gallery import) -->
+  <div id="addFilesOverlay" class="overlay" hidden>
+    <div class="card add-files-card" role="dialog" aria-modal="true">
+      <h2>Add files</h2>
+      <p class="reminder-sub">Photos and videos are imported into your Gallery folder.</p>
+      <div id="addFilesDropzone" class="add-files-dropzone" tabindex="0" role="button" aria-label="Choose files or drop them here">
+        <span data-icon="upload-cloud"></span>
+        <strong>Drag &amp; drop photos or videos here</strong>
+        <span>or click to browse</span>
+      </div>
+      <div class="settings-footer">
+        <button id="closeAddFilesBtn" class="btn btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gallery viewer / editor -->
+  <div id="galViewerOverlay" class="overlay" hidden>
+    <div class="card gal-viewer-card" role="dialog" aria-modal="true">
+      <div class="editor-title-row">
+        <input id="galViewerTitle" class="editor-title" maxlength="100" placeholder="Name" />
+        <button id="galViewerPinBtn" class="btn btn-ghost icon-btn" title="Pin" data-icon="pin"></button>
+      </div>
+      <div class="gal-viewer-meta" id="galViewerMeta"></div>
+      <input id="galViewerTags" class="gal-tags-input" placeholder="Tags, comma-separated (searchable)" maxlength="300" />
+
+      <div class="editor-tools" id="galViewerTools">
+        <button id="galOpenBtn" class="btn btn-ghost" title="Open in your default app" data-icon="external-link">Open</button>
+        <div class="editor-spacer"></div>
+        <button id="galDeleteBtn" class="btn btn-danger icon-btn" title="Delete" data-icon="trash-2"></button>
+        <button id="galViewerCloseBtn" class="btn btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Command palette -->
   <div id="paletteOverlay" class="overlay" hidden>
     <div class="card palette-card" role="dialog" aria-modal="true">
@@ -239,6 +387,8 @@
 
   <script src="icons.js"></script>
   <script src="markdown.js"></script>
+  <script src="calendar.js"></script>
+  <script src="gallery.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

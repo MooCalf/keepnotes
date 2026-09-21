@@ -12,7 +12,7 @@ The app checks for updates automatically whenever you have an internet connectio
 OR
 
 
-1. Download the [KeepNotes Setup](https://github.com/MooCalf/keepnotes/raw/main/KeepNotes-Setup-1.0.3.exe) exe file
+1. Download the [KeepNotes Setup](https://github.com/MooCalf/keepnotes/raw/main/KeepNotes-Setup-1.0.4.exe) exe file
 2. Run it, pick an install location
 3. Your done!
 

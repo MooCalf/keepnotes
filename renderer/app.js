@@ -57,6 +57,263 @@ let firstLoadDone = false;
 let iconPickerNote = null;
 let currentView = 'notes'; // 'notes' | 'archive'
 
+// ---------- clusters ----------
+// Mirrors main.js's WIDGET_HEIGHT/NORMAL_WIDTH tables so each panel's size
+// matches the window bounds main.js computed from the same settings. A user
+// drag overrides these via settings.clusterSizes (see effectiveClusterSize).
+const CLUSTER_SIZES = {
+  widget: { notes: 420, calendar: 220, gallery: 260 },
+  normal: { notes: 980, calendar: 340, gallery: 380 }
+};
+// Mirrors main.js's CLUSTER_MIN_SIZE - the floor a dragged divider can't push
+// a panel below, so it never gets dragged down to unusably small.
+const CLUSTER_MIN_SIZE = { widget: 120, normal: 220 };
+const CLUSTER_LABELS = { notes: 'Notes', calendar: 'Calendar', gallery: 'Gallery' };
+const CLUSTER_ICONS = { notes: 'sticky-note', calendar: 'calendar', gallery: 'image' };
+// Calendar/Gallery are heavier (disk scans, event storage) so they only ever
+// mount the first time their panel is actually enabled, not at app startup.
+const CLUSTER_MODULES = {
+  calendar: () => window.KeepNotesCalendar,
+  gallery: () => window.KeepNotesGallery
+};
+const clusterMounted = { notes: true, calendar: false, gallery: false };
+let currentSettings = null;
+let poppedClusterIds = new Set(); // clusters currently popped into their own window
+// If this window was opened as a popped-out cluster (see main.js
+// createClusterWindow), ?pop=<id> says which one it's dedicated to.
+const poppedClusterId = new URLSearchParams(location.search).get('pop');
+
+function maxClustersFor(widgetMode) {
+  return widgetMode ? 3 : 5;
+}
+
+function clusterModeOf(s) {
+  return s.widgetMode ? 'widget' : 'normal';
+}
+
+function effectiveClusterSize(s, mode, id) {
+  const custom = s.clusterSizes && s.clusterSizes[mode] && s.clusterSizes[mode][id];
+  if (typeof custom === 'number' && Number.isFinite(custom)) return custom;
+  return CLUSTER_SIZES[mode][id] || 0;
+}
+
+// Tells main.js how tall the topbar/tagbar chrome above #clusterStack is
+// actually rendering right now, so widget-mode window sizing can add it in
+// instead of the cluster stack quietly losing that much space and the
+// bottom of the last panel ending up cut off. Only the main window's chrome
+// matters here - a popped-out window sizes its one panel to fill whatever
+// space it's given instead (see applyPoppedLayout).
+function reportChromeHeight() {
+  if (poppedClusterId) return;
+  api.reportChromeHeight(Math.round($('clusterStack').getBoundingClientRect().top));
+}
+
+function applyClusterLayout(s) {
+  const stack = $('clusterStack');
+  stack.dataset.axis = s.widgetMode ? 'column' : 'row';
+  const mode = clusterModeOf(s);
+  const enabled = new Set(s.clusters);
+  stack.querySelectorAll('.cluster-divider').forEach((d) => d.remove());
+  for (const id of s.clusters) {
+    const panel = stack.querySelector(`.cluster-panel[data-cluster="${id}"]`);
+    if (panel) stack.appendChild(panel); // reorders to match settings.clusters
+  }
+  const visible = [];
+  for (const panel of stack.querySelectorAll('.cluster-panel')) {
+    const id = panel.dataset.cluster;
+    const on = enabled.has(id);
+    panel.hidden = !on;
+    if (!on) continue;
+    panel.style.flexBasis = effectiveClusterSize(s, mode, id) + 'px';
+    if (!clusterMounted[id] && CLUSTER_MODULES[id]) {
+      clusterMounted[id] = true;
+      CLUSTER_MODULES[id]().mount();
+    }
+    visible.push(panel);
+  }
+  // One draggable divider between each pair of adjacent visible panels, so
+  // the user can trade size between two neighbors without touching settings.
+  for (let i = 1; i < visible.length; i++) {
+    stack.insertBefore(makeClusterDivider(visible[i - 1].dataset.cluster, visible[i].dataset.cluster), visible[i]);
+  }
+  // Panel flex-basis sizes only ever add up to the window size main.js
+  // computed them from. Growing the OS window past that - dragging an edge,
+  // or maximizing - left the extra space unclaimed and the last panel's
+  // content clipped instead of using it, since every panel had flex-grow: 0.
+  // Handing that leftover space to the last panel (instead of splitting it,
+  // which would require re-deriving every panel's on-screen size) keeps the
+  // others exactly as sized while stopping the last one from being cut off.
+  visible.forEach((panel, i) => {
+    panel.style.flexGrow = i === visible.length - 1 ? '1' : '0';
+  });
+}
+
+// ---------- popped-out cluster windows ----------
+// This window is dedicated to exactly one cluster (see main.js
+// createClusterWindow) - it shows only that panel, full-size, with a small
+// header instead of the normal multi-cluster topbar/drawer.
+function applyPoppedLayout(id) {
+  const stack = $('clusterStack');
+  stack.dataset.axis = 'column';
+  for (const panel of stack.querySelectorAll('.cluster-panel')) {
+    const on = panel.dataset.cluster === id;
+    panel.hidden = !on;
+    if (!on) continue;
+    panel.style.flex = '1 1 auto'; // fill the whole popped window, not just its content height
+    if (!clusterMounted[id] && CLUSTER_MODULES[id]) {
+      clusterMounted[id] = true;
+      CLUSTER_MODULES[id]().mount();
+    }
+  }
+}
+
+function setupPoppedHeader(id) {
+  const panel = document.querySelector(`.cluster-panel[data-cluster="${id}"]`);
+  if (!panel) return;
+  const header = document.createElement('div');
+  header.className = 'cluster-header popped-header';
+  const title = document.createElement('span');
+  title.className = 'cluster-header-title';
+  title.appendChild(icon(CLUSTER_ICONS[id]));
+  title.append(CLUSTER_LABELS[id]);
+  header.appendChild(title);
+  // Notes has no add affordance of its own (calendar/gallery each have one
+  // in their own cluster-header) - the popped window has no topbar Add menu
+  // to reach it otherwise, so give it a small one here.
+  if (id === 'notes') {
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-ghost icon-btn';
+    addBtn.title = 'New note';
+    addBtn.setAttribute('aria-label', 'New note');
+    addBtn.appendChild(icon('plus'));
+    addBtn.addEventListener('click', addNewNote);
+    header.appendChild(addBtn);
+  }
+  panel.prepend(header);
+}
+
+function makeClusterDivider(beforeId, afterId) {
+  const div = document.createElement('div');
+  div.className = 'cluster-divider';
+  div.setAttribute('role', 'separator');
+  div.tabIndex = -1;
+  div.addEventListener('pointerdown', (e) => startClusterResize(e, beforeId, afterId));
+  return div;
+}
+
+function startClusterResize(e, beforeId, afterId) {
+  if (e.button !== undefined && e.button !== 0) return;
+  e.preventDefault();
+  const stack = $('clusterStack');
+  const vertical = currentSettings.widgetMode; // column axis stacks top-to-bottom
+  const mode = clusterModeOf(currentSettings);
+  const min = CLUSTER_MIN_SIZE[mode];
+  const beforePanel = stack.querySelector(`.cluster-panel[data-cluster="${beforeId}"]`);
+  const afterPanel = stack.querySelector(`.cluster-panel[data-cluster="${afterId}"]`);
+  if (!beforePanel || !afterPanel) return;
+  const dim = vertical ? 'height' : 'width';
+  const startPos = vertical ? e.clientY : e.clientX;
+  const startBefore = beforePanel.getBoundingClientRect()[dim];
+  const startAfter = afterPanel.getBoundingClientRect()[dim];
+  const total = startBefore + startAfter;
+  if (total < min * 2) return; // not enough room to split further
+
+  document.body.style.cursor = vertical ? 'row-resize' : 'col-resize';
+  document.body.style.userSelect = 'none';
+
+  const onMove = (ev) => {
+    const pos = vertical ? ev.clientY : ev.clientX;
+    const delta = pos - startPos;
+    const newBefore = Math.max(min, Math.min(total - min, startBefore + delta));
+    beforePanel.style.flexBasis = Math.round(newBefore) + 'px';
+    afterPanel.style.flexBasis = Math.round(total - newBefore) + 'px';
+  };
+  const onUp = async () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    const beforeSize = Math.round(beforePanel.getBoundingClientRect()[dim]);
+    const afterSize = Math.round(afterPanel.getBoundingClientRect()[dim]);
+    const clusterSizes = {
+      widget: { ...currentSettings.clusterSizes?.widget },
+      normal: { ...currentSettings.clusterSizes?.normal }
+    };
+    clusterSizes[mode][beforeId] = beforeSize;
+    clusterSizes[mode][afterId] = afterSize;
+    currentSettings = await api.setSettings({ clusterSizes });
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
+function renderClusterSettings(s) {
+  const wrap = $('clusterToggleList');
+  wrap.textContent = '';
+  const max = maxClustersFor(s.widgetMode);
+  $('clusterCapNote').textContent = `${s.clusters.length} of ${max} enabled`;
+  for (const id of Object.keys(CLUSTER_LABELS)) {
+    const row = document.createElement('label');
+    const popped = poppedClusterIds.has(id);
+    row.className = 'cluster-toggle-row' + (popped ? ' popped' : '');
+    const checked = s.clusters.includes(id);
+    const span = document.createElement('span');
+    span.appendChild(icon(CLUSTER_ICONS[id]));
+    span.append(CLUSTER_LABELS[id]);
+    row.appendChild(span);
+
+    const popBtn = document.createElement('button');
+    popBtn.type = 'button';
+    popBtn.className = 'btn btn-ghost cluster-pop-btn';
+    popBtn.textContent = popped ? 'Pop back in' : 'Pop out';
+    // A disabled cluster has nothing to pop out - grey the button out until
+    // the switch below turns it back on (popped clusters are always allowed
+    // back in, even though their own switch shows unchecked+disabled).
+    popBtn.disabled = !popped && !checked;
+    popBtn.title = popped
+      ? 'Bring this cluster back into the main window'
+      : (checked ? 'Open this cluster in its own window' : 'Enable this cluster first');
+    popBtn.addEventListener('click', async (e) => {
+      // Nested inside the row's own <label> - stop it from also toggling
+      // the checkbox below via the label's native click-bubbling behavior.
+      e.preventDefault();
+      e.stopPropagation();
+      if (popped) {
+        await api.popInCluster(id);
+        return;
+      }
+      const ok = await api.popOutCluster(id);
+      if (!ok) alert('Enable another cluster first - the window needs at least one to show.');
+    });
+    row.appendChild(popBtn);
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'switch';
+    cb.checked = checked;
+    cb.disabled = popped || (!checked && s.clusters.length >= max);
+    cb.addEventListener('change', () => setClusterEnabled(id, cb.checked));
+    row.appendChild(cb);
+    wrap.appendChild(row);
+  }
+}
+
+async function setClusterEnabled(id, on) {
+  let clusters = currentSettings.clusters.filter((c) => c !== id);
+  if (on) clusters = [id, ...clusters];
+  currentSettings = await api.setSettings({ clusters });
+  renderClusterSettings(currentSettings);
+  applyClusterLayout(currentSettings);
+}
+
+// Used by the Add menu so adding an event/file always works even if that
+// cluster's panel is currently switched off, instead of silently no-oping.
+async function ensureClusterEnabled(id) {
+  if (currentSettings.clusters.includes(id)) return;
+  await setClusterEnabled(id, true);
+}
+
 const $ = (id) => document.getElementById(id);
 const grid = $('grid');
 const empty = $('empty');
@@ -179,6 +436,17 @@ function setView(view) {
   activeTag = null;
   $('navNotesBtn').classList.toggle('active', view === 'notes');
   $('navArchiveBtn').classList.toggle('active', view === 'archive');
+  $('navPinnedBtn').classList.toggle('active', view === 'pinned');
+  const isPinned = view === 'pinned';
+  $('grid').hidden = isPinned;
+  $('pinnedGrid').hidden = !isPinned;
+  if (isPinned) {
+    $('empty').hidden = true;
+    $('tagBar').hidden = true;
+    renderPinnedGrid();
+    return;
+  }
+  $('pinnedEmpty').hidden = true;
   if (view === 'archive') {
     $('emptyTitle').textContent = 'No archived notes';
     $('emptyBody').textContent = 'Notes you archive will show up here.';
@@ -190,12 +458,26 @@ function setView(view) {
   renderGrid();
 }
 
+async function renderPinnedGrid() {
+  const shown = await window.KeepNotesGallery.renderPinnedInto($('pinnedGrid'), $('search').value);
+  $('pinnedEmpty').hidden = shown !== 0;
+}
+
+// Small hook gallery.js calls into when a pin/delete happens from its own
+// viewer, so this page stays live if it's the one currently on screen.
+window.KeepNotesApp = {
+  onPinnedImagesChanged() {
+    if (currentView === 'pinned') renderPinnedGrid();
+  }
+};
+
 $('menuBtn').addEventListener('click', () => {
   if ($('drawerBackdrop').classList.contains('open')) closeDrawer(); else openDrawer();
 });
 $('drawerBackdrop').addEventListener('click', closeDrawer);
 $('navNotesBtn').addEventListener('click', () => { setView('notes'); closeDrawer(); });
 $('navArchiveBtn').addEventListener('click', () => { setView('archive'); closeDrawer(); });
+$('navPinnedBtn').addEventListener('click', () => { setView('pinned'); closeDrawer(); });
 
 // ---------- rendering ----------
 function titleOf(file) {
@@ -247,6 +529,7 @@ function renderTagBar() {
   if (counts.size === 0) {
     bar.hidden = true;
     activeTag = null;
+    reportChromeHeight();
     return;
   }
   bar.hidden = false;
@@ -268,6 +551,7 @@ function renderTagBar() {
     });
     bar.appendChild(chip);
   }
+  reportChromeHeight();
 }
 
 function renderGrid() {
@@ -610,6 +894,7 @@ document.addEventListener('drop', (e) => e.preventDefault());
 // ---------- settings ----------
 async function openSettings() {
   const s = await api.getSettings();
+  currentSettings = s;
   $('optStartup').checked = s.launchAtStartup;
   $('optOnTop').checked = s.alwaysOnTop;
   $('optWidget').checked = s.widgetMode;
@@ -617,7 +902,9 @@ async function openSettings() {
   $('optMinimizeTray').checked = s.minimizeToTray;
   $('optCloseAction').value = s.closeAction;
   $('folderPath').textContent = s.notesDir;
+  $('galleryFolderPath').textContent = s.galleryDir || 'Pictures + Videos (default)';
   renderThemeSwatches();
+  renderClusterSettings(s);
   $('settingsOverlay').hidden = false;
 }
 
@@ -631,13 +918,42 @@ api.onReminderOpen(async (_e, fileName) => {
   if (n) openEditor(n);
 });
 
+// ---------- calendar reminder notification click ----------
+api.onCalendarReminderOpen((_e, id) => {
+  window.KeepNotesCalendar.openEvent(id);
+});
+
+// ---------- cross-window sync ----------
+// Other windows (the main window, or another popped-out cluster) can change
+// data or settings this window needs to reflect too.
+api.onDataChanged((_e, scope) => {
+  if (scope === 'notes') refresh();
+  if (scope === 'gallery' && currentView === 'pinned') renderPinnedGrid();
+});
+
+api.onSettingsChanged((_e, s) => {
+  currentSettings = s;
+  if (poppedClusterId) return; // this window only ever shows its one cluster
+  applyClusterLayout(s);
+  if (!$('settingsOverlay').hidden) renderClusterSettings(s);
+});
+
+api.onPoppedClustersChanged((_e, ids) => {
+  poppedClusterIds = new Set(ids);
+  if (!poppedClusterId && !$('settingsOverlay').hidden) renderClusterSettings(currentSettings);
+});
+
 // ---------- update banner ----------
 api.onUpdateReady((_e, version) => {
   $('updateBannerText').textContent = `KeepNotes ${version} is ready to install.`;
   $('updateBanner').hidden = false;
+  reportChromeHeight();
 });
 $('updateRestartBtn').addEventListener('click', () => api.installUpdate());
-$('updateDismissBtn').addEventListener('click', () => { $('updateBanner').hidden = true; });
+$('updateDismissBtn').addEventListener('click', () => {
+  $('updateBanner').hidden = true;
+  reportChromeHeight();
+});
 
 $('confirmCancelBtn').addEventListener('click', () => {
   $('closeConfirmOverlay').hidden = true;
@@ -653,7 +969,9 @@ $('confirmQuitBtn').addEventListener('click', () => {
 
 // ---------- command palette ----------
 const COMMANDS = [
-  { id: 'new-note', label: 'New note', icon: 'plus', run: () => $('newNoteBtn').click() },
+  { id: 'new-note', label: 'New note', icon: 'plus', run: () => addNewNote() },
+  { id: 'new-event', label: 'New event', icon: 'calendar', run: async () => { await ensureClusterEnabled('calendar'); await window.KeepNotesCalendar.newEvent(); } },
+  { id: 'add-file', label: 'Add file', icon: 'file-plus', run: () => openAddFiles() },
   { id: 'settings', label: 'Open settings', icon: 'settings', run: () => openSettings() },
   { id: 'open-archive', label: 'Open archive', icon: 'archive', run: () => setView('archive') },
   { id: 'open-notes', label: 'Back to notes', icon: 'sticky-note', run: () => setView('notes') },
@@ -724,17 +1042,108 @@ async function refresh() {
 }
 
 // ---------- wiring ----------
-$('newNoteBtn').addEventListener('click', async () => {
+async function addNewNote() {
   const file = await api.createNote('Note');
   if (currentView !== 'notes') setView('notes');
   await refresh();
   const n = notes.find((x) => x.file === file);
   if (n) openEditor(n);
+}
+
+// ---------- add menu ----------
+function openAddMenu() {
+  $('addMenu').hidden = false;
+  $('addBtn').setAttribute('aria-expanded', 'true');
+}
+
+function closeAddMenu() {
+  $('addMenu').hidden = true;
+  $('addBtn').setAttribute('aria-expanded', 'false');
+}
+
+function isAddMenuOpen() {
+  return !$('addMenu').hidden;
+}
+
+$('addBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (isAddMenuOpen()) closeAddMenu(); else openAddMenu();
+});
+document.addEventListener('click', (e) => {
+  if (!isAddMenuOpen()) return;
+  if (e.target === $('addBtn') || $('addMenu').contains(e.target)) return;
+  closeAddMenu();
+});
+
+$('addNoteOption').addEventListener('click', () => {
+  closeAddMenu();
+  addNewNote();
+});
+
+$('addEventOption').addEventListener('click', async () => {
+  closeAddMenu();
+  await ensureClusterEnabled('calendar');
+  await window.KeepNotesCalendar.newEvent();
+});
+
+$('addFileOption').addEventListener('click', () => {
+  closeAddMenu();
+  openAddFiles();
+});
+
+// ---------- add files (gallery import) ----------
+function openAddFiles() {
+  $('addFilesOverlay').hidden = false;
+}
+
+function closeAddFiles() {
+  $('addFilesOverlay').hidden = true;
+  $('addFilesDropzone').classList.remove('drag-over');
+}
+
+async function importFinished(result) {
+  if (!result || !result.imported) return;
+  await ensureClusterEnabled('gallery');
+  if (clusterMounted.gallery) window.KeepNotesGallery.refresh();
+}
+
+$('addFilesDropzone').addEventListener('click', async () => {
+  const result = await api.pickAndImportGallery();
+  await importFinished(result);
+  closeAddFiles();
+});
+$('addFilesDropzone').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('addFilesDropzone').click(); }
+});
+$('addFilesDropzone').addEventListener('dragover', (e) => {
+  e.preventDefault();
+  $('addFilesDropzone').classList.add('drag-over');
+});
+$('addFilesDropzone').addEventListener('dragleave', () => {
+  $('addFilesDropzone').classList.remove('drag-over');
+});
+$('addFilesDropzone').addEventListener('drop', async (e) => {
+  e.preventDefault();
+  $('addFilesDropzone').classList.remove('drag-over');
+  const files = e.dataTransfer && e.dataTransfer.files;
+  if (!files || !files.length) return;
+  const paths = [...files].map((f) => api.getPathForFile(f)).filter(Boolean);
+  if (!paths.length) return;
+  const result = await api.importGalleryFromPaths(paths);
+  await importFinished(result);
+  closeAddFiles();
+});
+$('closeAddFilesBtn').addEventListener('click', closeAddFiles);
+$('addFilesOverlay').addEventListener('click', (e) => {
+  if (e.target === $('addFilesOverlay')) closeAddFiles();
 });
 
 $('search').addEventListener('input', () => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(renderGrid, 120);
+  searchTimer = setTimeout(() => {
+    if (currentView === 'pinned') renderPinnedGrid();
+    else renderGrid();
+  }, 120);
 });
 
 $('closeEditorBtn').addEventListener('click', closeEditor);
@@ -830,7 +1239,12 @@ $('settingsOverlay').addEventListener('click', (e) => {
 
 $('optStartup').addEventListener('change', (e) => api.setSettings({ launchAtStartup: e.target.checked }));
 $('optOnTop').addEventListener('change', (e) => api.setSettings({ alwaysOnTop: e.target.checked }));
-$('optWidget').addEventListener('change', (e) => api.setSettings({ widgetMode: e.target.checked }));
+$('optWidget').addEventListener('change', async (e) => {
+  currentSettings = await api.setSettings({ widgetMode: e.target.checked });
+  $('optWidget').checked = currentSettings.widgetMode;
+  renderClusterSettings(currentSettings);
+  applyClusterLayout(currentSettings);
+});
 $('optBorderless').addEventListener('change', (e) => api.setSettings({ borderless: e.target.checked }));
 $('optMinimizeTray').addEventListener('change', (e) => api.setSettings({ minimizeToTray: e.target.checked }));
 $('optCloseAction').addEventListener('change', (e) => api.setSettings({ closeAction: e.target.value }));
@@ -845,6 +1259,22 @@ $('changeFolderBtn').addEventListener('click', async () => {
 
 $('openFolderBtn').addEventListener('click', () => api.openFolder());
 
+$('changeGalleryFolderBtn').addEventListener('click', async () => {
+  const dir = await api.chooseGalleryFolder();
+  if (!dir) return;
+  currentSettings = await api.setSettings({ galleryDir: dir });
+  $('galleryFolderPath').textContent = dir;
+  if (clusterMounted.gallery) window.KeepNotesGallery.refresh();
+});
+
+$('resetGalleryFolderBtn').addEventListener('click', async () => {
+  currentSettings = await api.setSettings({ galleryDir: null });
+  $('galleryFolderPath').textContent = 'Pictures + Videos (default)';
+  if (clusterMounted.gallery) window.KeepNotesGallery.refresh();
+});
+
+$('galFolderBtn').addEventListener('click', openSettings);
+
 // reload notes when the window regains focus so external .txt edits show up
 window.addEventListener('focus', refresh);
 
@@ -855,11 +1285,15 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'Escape') {
-    if ($('drawerBackdrop').classList.contains('open')) closeDrawer();
+    if (isAddMenuOpen()) closeAddMenu();
+    else if ($('drawerBackdrop').classList.contains('open')) closeDrawer();
     else if (!$('iconPickerOverlay').hidden) closeIconPicker();
     else if (!$('reminderOverlay').hidden) closeReminderOverlay();
     else if (!$('paletteOverlay').hidden) closePalette();
+    else if (!$('addFilesOverlay').hidden) closeAddFiles();
     else if (!$('editorOverlay').hidden) closeEditor();
+    else if (clusterMounted.calendar && window.KeepNotesCalendar.isOverlayOpen()) window.KeepNotesCalendar.closeOverlay();
+    else if (clusterMounted.gallery && window.KeepNotesGallery.isOverlayOpen()) window.KeepNotesGallery.closeOverlay();
     else if (!$('settingsOverlay').hidden) $('settingsOverlay').hidden = true;
     else if (!$('closeConfirmOverlay').hidden) {
       $('closeConfirmOverlay').hidden = true;
@@ -877,9 +1311,31 @@ $('winCloseBtn').addEventListener('click', () => api.closeWindow());
 async function init() {
   hydrateIcons();
   const s = await api.getSettings();
+  currentSettings = s;
   setTheme(s.theme, false);
   $('customTitlebar').hidden = !s.borderless;
+  api.getVersion().then((v) => { $('appVersion').textContent = `v${v}`; });
+
+  if (poppedClusterId && CLUSTER_LABELS[poppedClusterId]) {
+    document.body.classList.add('popped-mode');
+    document.title = `${CLUSTER_LABELS[poppedClusterId]} — KeepNotes`;
+    $('customTitlebarTitle').textContent = CLUSTER_LABELS[poppedClusterId];
+    setupPoppedHeader(poppedClusterId);
+    applyPoppedLayout(poppedClusterId);
+  } else {
+    applyClusterLayout(s);
+    poppedClusterIds = new Set(await api.getPoppedClusters());
+    reportChromeHeight();
+  }
   await refresh();
 }
+
+// The topbar can wrap onto a second line at very narrow widths, changing
+// how much room it takes - re-measure after any resize settles.
+let chromeResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(chromeResizeTimer);
+  chromeResizeTimer = setTimeout(reportChromeHeight, 150);
+});
 
 init();
