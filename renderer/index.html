@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: keepnotes-asset: keepnotes-gallery:; media-src keepnotes-gallery:; font-src 'self'" />
-  <title>KeepNotes</title>
+  <title>MeMoo</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="customTitlebar" class="custom-titlebar" hidden>
     <div class="custom-titlebar-drag">
-      <span class="brand-dot"></span>
-      <span id="customTitlebarTitle" class="custom-titlebar-title">KeepNotes</span>
+      <img class="brand-logo" src="logo.png" alt="" />
+      <span id="customTitlebarTitle" class="custom-titlebar-title">MeMoo</span>
     </div>
     <div class="custom-titlebar-controls">
       <button id="winMinBtn" class="titlebar-btn" data-icon="minimize-2" aria-label="Minimize"></button>
@@ -22,7 +22,8 @@
 
   <header class="topbar">
     <button id="menuBtn" class="brand" data-icon="menu" title="Menu" aria-label="Open menu">
-      <h1>KeepNotes</h1>
+      <img class="brand-logo" src="logo.png" alt="" />
+      <h1>MeMoo</h1>
       <span id="appVersion" class="app-version"></span>
     </button>
     <input id="search" type="search" placeholder="Search notes, events, files...  (Ctrl+K for quick switcher)" autocomplete="off" />
@@ -57,8 +58,8 @@
   <div id="drawerBackdrop" class="drawer-backdrop"></div>
   <nav id="navDrawer" class="drawer" aria-label="Navigation">
     <div class="drawer-header">
-      <span class="brand-dot"></span>
-      <span class="drawer-title">KeepNotes</span>
+      <img class="brand-logo" src="logo.png" alt="" />
+      <span class="drawer-title">MeMoo</span>
     </div>
     <button type="button" id="navNotesBtn" class="drawer-item active" data-icon="sticky-note">Notes</button>
     <button type="button" id="navArchiveBtn" class="drawer-item" data-icon="archive">Archive</button>
@@ -69,7 +70,7 @@
 
   <div id="updateBanner" class="update-banner" hidden>
     <span data-icon="download"></span>
-    <span id="updateBannerText">A new version of KeepNotes is ready.</span>
+    <span id="updateBannerText">A new version of MeMoo is ready.</span>
     <button id="updateRestartBtn" class="btn btn-primary" data-icon="rotate-cw">Restart to update</button>
     <button id="updateDismissBtn" class="btn btn-ghost icon-btn" title="Dismiss" data-icon="x"></button>
   </div>
@@ -83,6 +84,7 @@
       <main id="grid" class="grid" aria-live="polite"></main>
 
       <div id="empty" class="empty" hidden>
+        <img class="empty-logo" src="logo.png" alt="" />
         <p id="emptyTitle" class="empty-title">No notes yet</p>
         <p id="emptyBody">Create your first note, or drop .txt files into your notes folder and they will show up here.</p>
       </div>
@@ -180,10 +182,17 @@
         </div>
       </div>
 
+      <div class="setting-row column">
+        <strong>Note font</strong>
+        <small>The typeface for the text of your notes, in cards and the editor</small>
+        <select id="optNoteFont" class="select"></select>
+        <p id="noteFontPreview" class="note-font-preview">The quick brown fox jumps over the lazy dog. <strong>Bold</strong> and <em>italic</em> too.</p>
+      </div>
+
       <label class="setting-row">
         <span>
           <strong>Open at Windows startup</strong>
-          <small>KeepNotes launches when you sign in</small>
+          <small>MeMoo launches when you sign in</small>
         </span>
         <input type="checkbox" id="optStartup" class="switch" />
       </label>
@@ -265,7 +274,7 @@
   <!-- Close confirmation -->
   <div id="closeConfirmOverlay" class="overlay" hidden>
     <div class="card confirm-card" role="dialog" aria-modal="true">
-      <h2>Close KeepNotes?</h2>
+      <h2>Close MeMoo?</h2>
       <p>You can close the app completely, or send it to the system tray and keep it running in the background.</p>
       <div class="confirm-actions">
         <button id="confirmCancelBtn" class="btn btn-ghost">Cancel</button>

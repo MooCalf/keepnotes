@@ -1,4 +1,4 @@
-/* KeepNotes preview renderer.
+/* MeMoo preview renderer.
    Builds DOM directly (createElement/textContent), never innerHTML of note
    text, so a note's content can never inject markup - same invariant as
    the rest of the renderer. Supports: checklists (existing [ ]/[x] syntax),

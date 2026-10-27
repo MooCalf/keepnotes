@@ -10,3 +10,7 @@ build/icon.ico
 # Windows/Explorer cruft
 Thumbs.db
 desktop.ini
+
+# installers are build output - publish them as GitHub Release assets, never commit them
+*-Setup-*.exe
+*.exe.blockmap

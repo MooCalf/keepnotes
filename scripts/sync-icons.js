@@ -22,9 +22,27 @@ const ICONS = [
 const srcDir = path.join(__dirname, '..', 'node_modules', 'lucide-static', 'icons');
 const outFile = path.join(__dirname, '..', 'renderer', 'icons.js');
 
+// Keeps only the <svg>...</svg> element itself, dropping the license comment
+// lucide-static puts in front of it. Slicing out the element (instead of
+// regex-stripping comments, which a single pass can leave half-removed, e.g.
+// "<!<!---->--") means no comment fragment can survive into the markup, and
+// the check below fails the build if one is ever inside the element itself.
+function extractSvg(raw, name) {
+  const start = raw.indexOf('<svg');
+  const end = raw.lastIndexOf('</svg>');
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error(`${name}.svg: no <svg> element found`);
+  }
+  const svg = raw.slice(start, end + '</svg>'.length);
+  if (svg.includes('<!--') || svg.includes('-->')) {
+    throw new Error(`${name}.svg: unexpected comment inside <svg> element`);
+  }
+  return svg;
+}
+
 const entries = ICONS.map((name) => {
   const raw = fs.readFileSync(path.join(srcDir, `${name}.svg`), 'utf8');
-  const svg = raw.replace(/<!--[\s\S]*?-->\s*/g, '').trim();
+  const svg = extractSvg(raw, name);
   return `  ${JSON.stringify(name)}: ${JSON.stringify(svg)}`;
 });
 

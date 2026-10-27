@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld('keepnotes', {
 
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize'),
+  isWindowMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  onWindowMaximizedChanged: (callback) => ipcRenderer.on('window:maximized-changed', callback),
   closeWindow: () => ipcRenderer.invoke('window:close'),
   reportChromeHeight: (height) => ipcRenderer.invoke('window:reportChromeHeight', height)
 });

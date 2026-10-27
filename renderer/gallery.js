@@ -1,4 +1,4 @@
-/* KeepNotes Gallery cluster. Self-contained module exposing
+/* MeMoo Gallery cluster. Self-contained module exposing
    window.KeepNotesGallery, same pattern as calendar.js. */
 (function () {
   const api = window.keepnotes;
@@ -190,7 +190,7 @@
   }
 
   // Actually viewing (and editing - crop, rotate, etc.) happens in whatever
-  // app Windows already has associated with the file, not in KeepNotes.
+  // app Windows already has associated with the file, not in MeMoo.
   async function openInDefaultAppById(id) {
     try {
       await api.openGalleryInDefaultApp(id);

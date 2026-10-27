@@ -1,4 +1,4 @@
-// KeepNotes - main process
+// MeMoo (formerly KeepNotes) - main process
 // Security posture:
 //  - contextIsolation: true, sandbox: true, nodeIntegration: false
 //  - Renderer never touches the filesystem directly; all IO goes through
@@ -47,6 +47,43 @@ protocol.registerSchemesAsPrivileged([
 
 // ---------- settings ----------
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
+
+// The app was renamed from KeepNotes to MeMoo, which moves Electron's
+// userData folder (%APPDATA%\<productName>). Carry the old settings and
+// gallery metadata over once, so an upgrade keeps the user's notes folder,
+// theme and layout. Only runs while the new folder has no settings yet.
+const LEGACY_USERDATA_FILES = ['settings.json', 'gallery-meta.json'];
+function migrateLegacyUserData() {
+  try {
+    const legacyDir = path.join(app.getPath('appData'), 'KeepNotes');
+    const userData = app.getPath('userData');
+    if (path.resolve(legacyDir) === path.resolve(userData)) return;
+    if (fs.existsSync(settingsPath()) || !fs.existsSync(path.join(legacyDir, 'settings.json'))) return;
+    fs.mkdirSync(userData, { recursive: true });
+    for (const name of LEGACY_USERDATA_FILES) {
+      const from = path.join(legacyDir, name);
+      if (fs.existsSync(from)) fs.copyFileSync(from, path.join(userData, name));
+    }
+  } catch (err) {
+    console.error('Could not migrate KeepNotes settings:', err);
+  }
+}
+
+// New installs keep notes in Documents\MeMoo, but someone who used the
+// default Documents\KeepNotes folder keeps using it rather than starting
+// out with an empty notes list.
+function defaultNotesDir() {
+  const docs = app.getPath('documents');
+  const legacy = path.join(docs, 'KeepNotes');
+  const current = path.join(docs, 'MeMoo');
+  return fs.existsSync(legacy) && !fs.existsSync(current) ? legacy : current;
+}
+
+// Mirrors NOTE_FONTS in renderer/app.js.
+const NOTE_FONTS = new Set([
+  'segoe', 'calibri', 'arial', 'verdana', 'tahoma', 'trebuchet',
+  'georgia', 'cambria', 'times', 'consolas', 'comic', 'nunito'
+]);
 
 const THEMES = new Set([
   'light-paper', 'light-mist', 'light-sage', 'light-blossom', 'light-sand', 'light-ice',
@@ -107,7 +144,7 @@ function clampClusters(s) {
 }
 
 const defaultSettings = () => ({
-  notesDir: path.join(app.getPath('documents'), 'KeepNotes'),
+  notesDir: defaultNotesDir(),
   alwaysOnTop: false,
   launchAtStartup: true,
   theme: 'light-paper',
@@ -117,7 +154,8 @@ const defaultSettings = () => ({
   borderless: false,
   clusters: ['notes'],
   galleryDir: null,
-  clusterSizes: { widget: {}, normal: {} }
+  clusterSizes: { widget: {}, normal: {} },
+  noteFont: 'segoe'
 });
 
 function migrateTheme(theme) {
@@ -147,6 +185,7 @@ function sanitizeSettings(s) {
   if (typeof s.minimizeToTray === 'boolean') out.minimizeToTray = s.minimizeToTray;
   if (typeof s.closeAction === 'string' && CLOSE_ACTIONS.has(s.closeAction)) out.closeAction = s.closeAction;
   if (typeof s.borderless === 'boolean') out.borderless = s.borderless;
+  if (typeof s.noteFont === 'string' && NOTE_FONTS.has(s.noteFont)) out.noteFont = s.noteFont;
   if (Array.isArray(s.clusters)) {
     const seen = new Set();
     const list = [];
@@ -221,6 +260,13 @@ let chromeHeight = 0;
 // height and lines clusters up beside each other into the width.
 function applyLayout() {
   win.setSkipTaskbar(!!settings.widgetMode);
+  // A maximized window keeps filling the screen - the renderer lays clusters
+  // out side by side for it - unless widget mode was just switched, which
+  // has to restore the window so the new mode's bounds can apply.
+  if (win.isMaximized()) {
+    if (widgetActive === !!settings.widgetMode) return;
+    win.unmaximize();
+  }
   const { workArea } = screen.getPrimaryDisplay();
 
   if (settings.widgetMode) {
@@ -656,7 +702,7 @@ function setupAutoUpdater() {
     }
     if (Notification.isSupported()) {
       const notification = new Notification({
-        title: 'KeepNotes update ready',
+        title: 'MeMoo update ready',
         body: `Version ${info.version} has been downloaded. Restart to install it.`,
         silent: false
       });
@@ -993,7 +1039,7 @@ function registerIpc() {
   });
 
   // Editing (crop/rotate/etc.) happens in the user's own default app for the
-  // file, not in KeepNotes - this just hands the real file off to Windows.
+  // file, not in MeMoo - this just hands the real file off to Windows.
   ipcMain.handle('gallery:openInDefaultApp', async (_e, id) => {
     const full = galleryIndex.get(id);
     if (!full) throw new Error('Not found');
@@ -1097,6 +1143,7 @@ function registerIpc() {
     if (w.isMaximized()) w.unmaximize();
     else w.maximize();
   });
+  ipcMain.handle('window:isMaximized', (e) => !!BrowserWindow.fromWebContents(e.sender)?.isMaximized());
   ipcMain.handle('window:close', (e) => BrowserWindow.fromWebContents(e.sender)?.close());
 
   // The main window reports how tall its own topbar/tagbar/titlebar chrome
@@ -1183,6 +1230,9 @@ function createWindow(bounds) {
   // Block any navigation or popups; this app never loads remote content.
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  win.on('maximize', () => win.webContents.send('window:maximized-changed', true));
+  win.on('unmaximize', () => win.webContents.send('window:maximized-changed', false));
 
   win.on('minimize', (e) => {
     if (settings.minimizeToTray) {
@@ -1335,11 +1385,11 @@ function createClusterWindow(id) {
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png')).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
-  tray.setToolTip('KeepNotes');
+  tray.setToolTip('MeMoo');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Open KeepNotes', click: () => { win.show(); win.focus(); } },
+    { label: 'Open MeMoo', click: () => { win.show(); win.focus(); } },
     { type: 'separator' },
-    { label: 'Quit KeepNotes', click: () => { isQuitting = true; app.quit(); } }
+    { label: 'Quit MeMoo', click: () => { isQuitting = true; app.quit(); } }
   ]));
   tray.on('click', () => {
     if (win.isVisible()) {
@@ -1398,9 +1448,10 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
-    // Required for Windows toast notifications to show KeepNotes' icon/name
+    // Required for Windows toast notifications to show MeMoo's icon/name
     // correctly instead of falling back to Electron's defaults.
     app.setAppUserModelId('com.moocalf.keepnotes');
+    migrateLegacyUserData();
     settings = loadSettings();
     registerIpc();
     registerAssetProtocol();

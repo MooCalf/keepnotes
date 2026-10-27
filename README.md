@@ -1,4 +1,8 @@
-# KeepNotes
+<p align="center"><img src="build/icon.png" width="128" alt="MeMoo logo"></p>
+
+# MeMoo
+
+*Formerly KeepNotes.*
 
 A simple, secure sticky-notes desktop app for Windows. Google Keep style card grid, checklists, colors, pinning, search, and reminders that can repeat daily/weekly/monthly/yearly. Every note is a plain `.txt` file in a folder you choose, so your notes are always readable without the app.
 
@@ -7,12 +11,12 @@ The app checks for updates automatically whenever you have an internet connectio
 
 ## Install 
 
-**From a local build:** run `npm run dist` (see below), then run `dist\KeepNotes-Setup-x.x.x.exe`. Pick an install location and finish - a desktop and Start Menu shortcut are created automatically 
+**From a local build:** run `npm run dist` (see below), then run `dist\MeMoo-Setup-x.x.x.exe`. Pick an install location and finish - a desktop and Start Menu shortcut are created automatically 
 
 OR
 
 
-1. Download the [KeepNotes Setup](https://github.com/MooCalf/keepnotes/raw/main/KeepNotes-Setup-1.0.4.exe) exe file
+1. Download the latest `MeMoo-Setup-x.x.x.exe` from the [Releases page](https://github.com/MooCalf/keepnotes/releases/latest)
 2. Run it, pick an install location
 3. Your done!
 
@@ -54,7 +58,7 @@ You do not need a Windows build machine. GitHub Actions builds the exe.
 ```bash
 git init
 git add .
-git commit -m "KeepNotes v1.0.0"
+git commit -m "MeMoo v1.0.0"
 git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/keepnotes.git
 git push -u origin main

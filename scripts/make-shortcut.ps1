@@ -1,4 +1,4 @@
-# Creates a Desktop + Start Menu shortcut that launches KeepNotes in dev mode
+# Creates a Desktop + Start Menu shortcut that launches MeMoo in dev mode
 # straight from this project folder (no installer needed). Also (re)builds
 # build/icon.ico from build/icon.png if it's missing or out of date, since
 # .lnk shortcuts need a real .ico, not a .png.
@@ -65,22 +65,22 @@ if (-not (Test-Path $icoPath) -or (Get-Item $pngPath).LastWriteTime -gt (Get-Ite
 # ---- shortcuts ----
 $shell = New-Object -ComObject WScript.Shell
 
-function New-KeepNotesShortcut($path) {
+function New-MeMooShortcut($path) {
   $sc = $shell.CreateShortcut($path)
   $sc.TargetPath = $electronExe
   $sc.Arguments = "`"$root`""
   $sc.WorkingDirectory = $root
   $sc.IconLocation = $icoPath
-  $sc.Description = 'KeepNotes - plain-text sticky notes'
+  $sc.Description = 'MeMoo - plain-text sticky notes'
   $sc.Save()
   Write-Host "Created $path"
 }
 
 $desktop = [Environment]::GetFolderPath('Desktop')
-New-KeepNotesShortcut (Join-Path $desktop 'KeepNotes.lnk')
+New-MeMooShortcut (Join-Path $desktop 'MeMoo.lnk')
 
 $startMenu = [Environment]::GetFolderPath('StartMenu')
 $programs = Join-Path $startMenu 'Programs'
-New-KeepNotesShortcut (Join-Path $programs 'KeepNotes.lnk')
+New-MeMooShortcut (Join-Path $programs 'MeMoo.lnk')
 
 Write-Host "`nDone. Right-click the Desktop icon and choose 'Pin to taskbar' if you want it there too."

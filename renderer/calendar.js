@@ -1,4 +1,4 @@
-/* KeepNotes Calendar cluster. Self-contained module (own $ and icon()
+/* MeMoo Calendar cluster. Self-contained module (own $ and icon()
    helpers, like markdown.js) exposing window.KeepNotesCalendar so app.js
    can mount/refresh it and route reminder clicks into it without either
    file needing to know the other's internals. */

@@ -1,4 +1,4 @@
-/* KeepNotes renderer. All DOM is built with createElement/textContent,
+/* MeMoo renderer. All DOM is built with createElement/textContent,
    never innerHTML with note data, so note content can't inject markup.
    The one exception is icon()/hydrateIcons(), which inline our own bundled
    Lucide SVG assets (never user data) via innerHTML. */
@@ -87,8 +87,13 @@ function maxClustersFor(widgetMode) {
   return widgetMode ? 3 : 5;
 }
 
+// Widget mode stacks clusters top-to-bottom, but a maximized window (full
+// view) has the room to line them up side by side like normal mode does, so
+// it uses the normal layout and sizes until it's restored.
+let windowMaximized = false;
+
 function clusterModeOf(s) {
-  return s.widgetMode ? 'widget' : 'normal';
+  return s.widgetMode && !windowMaximized ? 'widget' : 'normal';
 }
 
 function effectiveClusterSize(s, mode, id) {
@@ -110,7 +115,7 @@ function reportChromeHeight() {
 
 function applyClusterLayout(s) {
   const stack = $('clusterStack');
-  stack.dataset.axis = s.widgetMode ? 'column' : 'row';
+  stack.dataset.axis = clusterModeOf(s) === 'widget' ? 'column' : 'row';
   const mode = clusterModeOf(s);
   const enabled = new Set(s.clusters);
   stack.querySelectorAll('.cluster-divider').forEach((d) => d.remove());
@@ -206,8 +211,8 @@ function startClusterResize(e, beforeId, afterId) {
   if (e.button !== undefined && e.button !== 0) return;
   e.preventDefault();
   const stack = $('clusterStack');
-  const vertical = currentSettings.widgetMode; // column axis stacks top-to-bottom
   const mode = clusterModeOf(currentSettings);
+  const vertical = mode === 'widget'; // column axis stacks top-to-bottom
   const min = CLUSTER_MIN_SIZE[mode];
   const beforePanel = stack.querySelector(`.cluster-panel[data-cluster="${beforeId}"]`);
   const afterPanel = stack.querySelector(`.cluster-panel[data-cluster="${afterId}"]`);
@@ -385,6 +390,55 @@ $('iconPickerOverlay').addEventListener('click', (e) => {
 });
 $('noteIconBtn').addEventListener('click', () => {
   if (current) openIconPicker(current);
+});
+
+// ---------- note font ----------
+// Note text (cards, editor, preview) uses a plain reading font instead of the
+// app's Nunito UI font. Only fonts that ship with Windows are offered, so a
+// choice never silently falls back. Ids mirror NOTE_FONTS in main.js.
+const NOTE_FONTS = [
+  { id: 'segoe', label: 'Segoe UI (Windows default)', stack: '"Segoe UI", system-ui, sans-serif' },
+  { id: 'calibri', label: 'Calibri', stack: 'Calibri, "Segoe UI", sans-serif' },
+  { id: 'arial', label: 'Arial', stack: 'Arial, sans-serif' },
+  { id: 'verdana', label: 'Verdana', stack: 'Verdana, sans-serif' },
+  { id: 'tahoma', label: 'Tahoma', stack: 'Tahoma, sans-serif' },
+  { id: 'trebuchet', label: 'Trebuchet MS', stack: '"Trebuchet MS", sans-serif' },
+  { id: 'georgia', label: 'Georgia', stack: 'Georgia, serif' },
+  { id: 'cambria', label: 'Cambria', stack: 'Cambria, Georgia, serif' },
+  { id: 'times', label: 'Times New Roman', stack: '"Times New Roman", serif' },
+  { id: 'consolas', label: 'Consolas (monospace)', stack: 'Consolas, "Courier New", monospace' },
+  { id: 'comic', label: 'Comic Sans MS', stack: '"Comic Sans MS", cursive' },
+  { id: 'nunito', label: 'Nunito (app font)', stack: 'var(--font-ui)' }
+];
+const DEFAULT_NOTE_FONT = 'segoe';
+
+function noteFontById(id) {
+  return NOTE_FONTS.find((f) => f.id === id) || NOTE_FONTS.find((f) => f.id === DEFAULT_NOTE_FONT);
+}
+
+function applyNoteFont(id) {
+  const font = noteFontById(id);
+  document.documentElement.style.setProperty('--note-font', font.stack);
+  // Nunito is only bundled at its 800 weight; system fonts read best at 400.
+  document.documentElement.style.setProperty('--note-weight', font.id === 'nunito' ? '800' : '400');
+}
+
+function renderNoteFontOptions(activeId) {
+  const select = $('optNoteFont');
+  select.textContent = '';
+  for (const f of NOTE_FONTS) {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.label;
+    opt.style.fontFamily = f.stack;
+    select.appendChild(opt);
+  }
+  select.value = noteFontById(activeId).id;
+}
+
+$('optNoteFont').addEventListener('change', async (e) => {
+  applyNoteFont(e.target.value);
+  currentSettings = await api.setSettings({ noteFont: e.target.value });
 });
 
 // ---------- theme ----------
@@ -904,6 +958,7 @@ async function openSettings() {
   $('folderPath').textContent = s.notesDir;
   $('galleryFolderPath').textContent = s.galleryDir || 'Pictures + Videos (default)';
   renderThemeSwatches();
+  renderNoteFontOptions(s.noteFont);
   renderClusterSettings(s);
   $('settingsOverlay').hidden = false;
 }
@@ -933,6 +988,7 @@ api.onDataChanged((_e, scope) => {
 
 api.onSettingsChanged((_e, s) => {
   currentSettings = s;
+  applyNoteFont(s.noteFont);
   if (poppedClusterId) return; // this window only ever shows its one cluster
   applyClusterLayout(s);
   if (!$('settingsOverlay').hidden) renderClusterSettings(s);
@@ -945,7 +1001,7 @@ api.onPoppedClustersChanged((_e, ids) => {
 
 // ---------- update banner ----------
 api.onUpdateReady((_e, version) => {
-  $('updateBannerText').textContent = `KeepNotes ${version} is ready to install.`;
+  $('updateBannerText').textContent = `MeMoo ${version} is ready to install.`;
   $('updateBanner').hidden = false;
   reportChromeHeight();
 });
@@ -1313,17 +1369,23 @@ async function init() {
   const s = await api.getSettings();
   currentSettings = s;
   setTheme(s.theme, false);
+  applyNoteFont(s.noteFont);
   $('customTitlebar').hidden = !s.borderless;
   api.getVersion().then((v) => { $('appVersion').textContent = `v${v}`; });
 
   if (poppedClusterId && CLUSTER_LABELS[poppedClusterId]) {
     document.body.classList.add('popped-mode');
-    document.title = `${CLUSTER_LABELS[poppedClusterId]} — KeepNotes`;
+    document.title = `${CLUSTER_LABELS[poppedClusterId]} — MeMoo`;
     $('customTitlebarTitle').textContent = CLUSTER_LABELS[poppedClusterId];
     setupPoppedHeader(poppedClusterId);
     applyPoppedLayout(poppedClusterId);
   } else {
+    windowMaximized = await api.isWindowMaximized();
     applyClusterLayout(s);
+    api.onWindowMaximizedChanged((_e, maximized) => {
+      windowMaximized = !!maximized;
+      applyClusterLayout(currentSettings);
+    });
     poppedClusterIds = new Set(await api.getPoppedClusters());
     reportChromeHeight();
   }
