@@ -2,8 +2,6 @@
 
 # MeMoo
 
-*Formerly KeepNotes.*
-
 A simple, secure sticky-notes desktop app for Windows. Google Keep style card grid, checklists, colors, pinning, search, and reminders that can repeat daily/weekly/monthly/yearly. Every note is a plain `.txt` file in a folder you choose, so your notes are always readable without the app.
 
 The app checks for updates automatically whenever you have an internet connection and installs them on your next restart - see [Auto-updates](#auto-updates) below.
