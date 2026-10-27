@@ -1,4 +1,4 @@
-<p align="center"><img src="build/icon.png" width="128" alt="MeMoo logo"></p>
+<img width="2172" height="724" alt="MeMoo calf checklist logo" src="https://github.com/user-attachments/assets/abec1351-6e21-492e-a3f3-ea04e758d7ce" />
 
 # MeMoo
 
