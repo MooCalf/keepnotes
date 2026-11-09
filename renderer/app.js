@@ -62,21 +62,21 @@ let currentView = 'notes'; // 'notes' | 'archive'
 // matches the window bounds main.js computed from the same settings. A user
 // drag overrides these via settings.clusterSizes (see effectiveClusterSize).
 const CLUSTER_SIZES = {
-  widget: { notes: 420, calendar: 220, gallery: 260 },
-  normal: { notes: 980, calendar: 340, gallery: 380 }
+  widget: { notes: 420, calendar: 220, gallery: 260, countdown: 240 },
+  normal: { notes: 980, calendar: 340, gallery: 380, countdown: 340 }
 };
 // Mirrors main.js's CLUSTER_MIN_SIZE - the floor a dragged divider can't push
 // a panel below, so it never gets dragged down to unusably small.
 const CLUSTER_MIN_SIZE = { widget: 120, normal: 220 };
-const CLUSTER_LABELS = { notes: 'Notes', calendar: 'Calendar', gallery: 'Gallery' };
-const CLUSTER_ICONS = { notes: 'sticky-note', calendar: 'calendar', gallery: 'image' };
+const CLUSTER_LABELS = { notes: 'Notes', calendar: 'Calendar', gallery: 'Gallery', countdown: 'Count Down' };
+const CLUSTER_ICONS = { notes: 'sticky-note', calendar: 'calendar', gallery: 'image', countdown: 'clock' };
 // Calendar/Gallery are heavier (disk scans, event storage) so they only ever
 // mount the first time their panel is actually enabled, not at app startup.
 const CLUSTER_MODULES = {
   calendar: () => window.KeepNotesCalendar,
   gallery: () => window.KeepNotesGallery
 };
-const clusterMounted = { notes: true, calendar: false, gallery: false };
+const clusterMounted = { notes: true, calendar: false, gallery: false, countdown: true };
 let currentSettings = null;
 let poppedClusterIds = new Set(); // clusters currently popped into their own window
 // If this window was opened as a popped-out cluster (see main.js
@@ -195,7 +195,9 @@ function setupPoppedHeader(id) {
     addBtn.addEventListener('click', addNewNote);
     header.appendChild(addBtn);
   }
-  panel.prepend(header);
+  const existingHeader = panel.querySelector('.cluster-header');
+  if (id === 'countdown' && existingHeader) existingHeader.replaceWith(header);
+  else panel.prepend(header);
 }
 
 function makeClusterDivider(beforeId, afterId) {
@@ -555,6 +557,43 @@ function toDatetimeLocalValue(ms) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function createCountdownTimer(reminderAt) {
+  const timer = document.createElement('span');
+  timer.className = 'countdown-timer';
+  timer.dataset.reminderAt = String(reminderAt);
+  timer.textContent = window.KeepNotesCountdown.format(reminderAt);
+  timer.classList.toggle('due', reminderAt <= Date.now());
+  return timer;
+}
+
+function updateCountdownTimers() {
+  const now = Date.now();
+  document.querySelectorAll('.countdown-timer').forEach((timer) => {
+    const at = Number(timer.dataset.reminderAt);
+    const text = window.KeepNotesCountdown.format(at, now);
+    if (timer.textContent !== text) timer.textContent = text;
+    timer.classList.toggle('due', at <= now);
+  });
+}
+
+function renderCountdownCluster() {
+  const list = $('countdownList');
+  list.textContent = '';
+  const countdownNotes = window.KeepNotesCountdown.selectNotes(notes);
+  $('countdownEmpty').hidden = countdownNotes.length !== 0;
+  for (const note of countdownNotes) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'countdown-item';
+    const title = document.createElement('span');
+    title.className = 'countdown-title';
+    title.textContent = titleOf(note.file);
+    row.append(title, createCountdownTimer(note.meta.reminderAt));
+    row.addEventListener('click', () => openEditor(note));
+    list.appendChild(row);
+  }
+}
+
 function inCurrentView(note) {
   return currentView === 'archive' ? !!note.meta.archived : !note.meta.archived;
 }
@@ -609,6 +648,7 @@ function renderTagBar() {
 }
 
 function renderGrid() {
+  renderCountdownCluster();
   const q = $('search').value.trim().toLowerCase();
   grid.textContent = '';
   let shown = 0;
@@ -673,9 +713,10 @@ function renderGrid() {
       const rem = document.createElement('div');
       const isDue = n.meta.reminderAt <= Date.now() && !n.meta.reminderNotified;
       rem.className = 'note-reminder' + (isDue ? ' due' : '');
-      rem.appendChild(icon('bell'));
-      const span = document.createElement('span');
-      span.textContent = formatReminder(n.meta.reminderAt);
+      const countdown = n.meta.reminderCountdown === true;
+      rem.appendChild(icon(countdown ? 'clock' : 'bell'));
+      const span = countdown ? createCountdownTimer(n.meta.reminderAt) : document.createElement('span');
+      if (!countdown) span.textContent = formatReminder(n.meta.reminderAt);
       rem.appendChild(span);
       if (REPEAT_LABELS[n.meta.reminderRepeat]) {
         rem.appendChild(icon('repeat', 'note-reminder-repeat'));
@@ -1245,6 +1286,7 @@ $('reminderBtn').addEventListener('click', () => {
   const hasReminder = typeof current.meta.reminderAt === 'number';
   input.value = toDatetimeLocalValue(hasReminder ? current.meta.reminderAt : Date.now() + 60 * 60 * 1000);
   $('reminderRepeatInput').value = current.meta.reminderRepeat || 'none';
+  $('reminderCountdownBtn').setAttribute('aria-pressed', String(current.meta.reminderCountdown === true));
   $('reminderClearBtn').hidden = !hasReminder;
   $('reminderOverlay').hidden = false;
   input.focus();
@@ -1253,6 +1295,11 @@ $('reminderBtn').addEventListener('click', () => {
 function closeReminderOverlay() {
   $('reminderOverlay').hidden = true;
 }
+
+$('reminderCountdownBtn').addEventListener('click', () => {
+  const button = $('reminderCountdownBtn');
+  button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+});
 
 $('reminderCancelBtn').addEventListener('click', closeReminderOverlay);
 $('reminderOverlay').addEventListener('click', (e) => {
@@ -1265,16 +1312,17 @@ $('reminderSaveBtn').addEventListener('click', async () => {
   const ms = new Date(val).getTime();
   if (Number.isNaN(ms)) return;
   const repeat = $('reminderRepeatInput').value;
-  current.meta = await api.setNoteMeta(current.file, { reminderAt: ms, reminderRepeat: repeat });
+  const reminderCountdown = $('reminderCountdownBtn').getAttribute('aria-pressed') === 'true';
+  current.meta = await api.setNoteMeta(current.file, { reminderAt: ms, reminderRepeat: repeat, reminderCountdown });
   updateReminderBtn();
-  renderGrid();
+  await refresh();
   closeReminderOverlay();
 });
 
 $('reminderClearBtn').addEventListener('click', async () => {
   current.meta = await api.setNoteMeta(current.file, { reminderAt: null });
   updateReminderBtn();
-  renderGrid();
+  await refresh();
   closeReminderOverlay();
 });
 
@@ -1400,4 +1448,5 @@ window.addEventListener('resize', () => {
   chromeResizeTimer = setTimeout(reportChromeHeight, 150);
 });
 
+setInterval(updateCountdownTimers, 1000);
 init();

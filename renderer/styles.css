@@ -251,7 +251,8 @@ body {
 .cluster-panel[hidden] { display: none; }
 /* Notes is the recessed "canvas"; side clusters read as MooPress side panels. */
 .cluster-panel[data-cluster="calendar"],
-.cluster-panel[data-cluster="gallery"] { background: var(--chrome); }
+.cluster-panel[data-cluster="gallery"],
+.cluster-panel[data-cluster="countdown"] { background: var(--chrome); }
 
 /* A thin draggable bar between two adjacent visible panels - dragging it
    trades size between the panel before and after it (see startClusterResize
@@ -282,6 +283,19 @@ body {
 }
 .cluster-header-title { display: flex; align-items: center; gap: 8px; }
 .cluster-header-title .icon { color: var(--accent); width: 15px; height: 15px; }
+
+/* ---------- countdown cluster ---------- */
+.countdown-list { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 14px; }
+.countdown-item {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px;
+  width: 100%; padding: 12px; font: inherit; text-align: left; cursor: pointer;
+  color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.countdown-item:hover { border-color: var(--accent); }
+.countdown-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.countdown-title { flex: 1 1 100px; min-width: 0; overflow-wrap: anywhere; }
+.countdown-timer { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--accent); }
+.countdown-timer.due { color: var(--danger); }
 
 /* ---------- calendar cluster ---------- */
 .cal-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 10px 6px; }
@@ -984,6 +998,13 @@ html[data-theme^="dark"] .empty-logo {
 .reminder-input:hover { border-color: var(--faint); }
 .reminder-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .reminder-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+#reminderCountdownBtn[aria-pressed="true"] {
+  color: var(--accent); background: var(--accent-soft); border-color: var(--accent);
+}
+#reminderOverlay .reminder-actions { flex-wrap: wrap; gap: 6px; }
+.reminder-action-group { display: flex; align-items: center; gap: 6px; }
+.reminder-commit { margin-left: auto; }
+#reminderOverlay .reminder-actions .btn { padding-inline: 8px; }
 
 .cluster-toggle-list { display: flex; flex-direction: column; width: 100%; }
 .cluster-toggle-row {

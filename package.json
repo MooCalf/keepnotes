@@ -1,13 +1,14 @@
 {
   "name": "memoo-desktop",
   "productName": "MeMoo",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A simple, secure sticky-notes and checklist desktop app that stores everything as plain .txt files.",
   "main": "main.js",
   "author": "MooCalf",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
+    "test": "node --test tests/*.test.js",
     "dist": "electron-builder --win",
     "release": "electron-builder --win --publish always",
     "icons": "node scripts/sync-icons.js"

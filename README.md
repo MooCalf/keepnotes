@@ -6,6 +6,8 @@ A simple, secure sticky-notes desktop app for Windows. Google Keep style card gr
 
 The app checks for updates automatically whenever you have an internet connection and installs them on your next restart - see [Auto-updates](#auto-updates) below.
 
+Turn on **Count Down** in a note's reminder picker and save to display a live countdown on its card. Enable the **Count Down** cluster in Settings to see all countdown notes together, showing just each title and timer, soonest first. Timers stop at zero; repeating reminders count down to their next scheduled date. The cluster can also be resized or popped into its own window.
+
 
 ## Install 
 
@@ -28,6 +30,7 @@ npm start        # run the app in dev mode
 npm run dist     # build the Windows installer into dist/
 npm run release  # build AND publish to GitHub Releases (needs GH_TOKEN env var); CI does this for you on a tag push
 npm run icons    # regenerate renderer/icons.js
+npm test         # run countdown and reminder behavior tests
 ```
 
 The startup toggle only registers with Windows in the packaged (installed) build.

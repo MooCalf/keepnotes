@@ -110,11 +110,11 @@ const CLOSE_ACTIONS = new Set(['ask', 'quit', 'tray']);
 // stack in the main window. `settings.clusters` is an ordered array of
 // enabled ids, front = most-recently-enabled; that order is both the
 // membership set and the visual stacking order (see applyLayout below).
-const KNOWN_CLUSTERS = new Set(['notes', 'calendar', 'gallery']);
+const KNOWN_CLUSTERS = new Set(['notes', 'calendar', 'gallery', 'countdown']);
 const WIDGET_WIDTH = 320;
-const WIDGET_HEIGHT = { notes: 420, calendar: 220, gallery: 260 };
+const WIDGET_HEIGHT = { notes: 420, calendar: 220, gallery: 260, countdown: 240 };
 const NORMAL_HEIGHT = 700;
-const NORMAL_WIDTH = { notes: 980, calendar: 340, gallery: 380 };
+const NORMAL_WIDTH = { notes: 980, calendar: 340, gallery: 380, countdown: 340 };
 // Floor for a cluster's own size when the user drags the divider between it
 // and a neighbor - keeps a dragged-down panel from collapsing to nothing.
 const CLUSTER_MIN_SIZE = { widget: 120, normal: 220 };
@@ -255,6 +255,36 @@ function applySettings(skipResize) {
 // of the last panel ends up visually cut off.
 let chromeHeight = 0;
 
+// Work with the whole native window, including its titlebar and borders.
+// Content-only limits can still leave part of a framed widget off screen.
+function keepWidgetOnScreen(target) {
+  if (target.isDestroyed() || target.isMaximized()) return;
+  const bounds = target.getBounds();
+  const { workArea } = screen.getDisplayMatching(bounds);
+  const margin = WIDGET_SIDE_MARGIN;
+  const width = Math.min(bounds.width, Math.max(1, workArea.width - margin * 2));
+  const height = Math.min(bounds.height, Math.max(1, workArea.height - margin * 2));
+  const x = Math.max(workArea.x + margin, Math.min(bounds.x, workArea.x + workArea.width - margin - width));
+  const y = Math.max(workArea.y + margin, Math.min(bounds.y, workArea.y + workArea.height - margin - height));
+  if (x !== bounds.x || y !== bounds.y || width !== bounds.width || height !== bounds.height) {
+    target.setBounds({ x, y, width, height });
+  }
+}
+
+function guardWidgetBounds(target, isWidget) {
+  let adjusting = false;
+  const constrain = () => {
+    if (adjusting || !isWidget()) return;
+    adjusting = true;
+    try { keepWidgetOnScreen(target); }
+    finally { adjusting = false; }
+  };
+  target.on('resize', constrain);
+  target.on('moved', constrain);
+  target.on('restore', constrain);
+  constrain();
+}
+
 // Sizes the window from the enabled clusters: widget mode keeps a fixed
 // width and stacks clusters into the height; normal mode keeps a fixed
 // height and lines clusters up beside each other into the width.
@@ -274,19 +304,19 @@ function applyLayout() {
       previousBounds = win.getContentBounds();
       widgetActive = true;
     }
-    const height = Math.min(
-      chromeHeight + settings.clusters.reduce((sum, id) => sum + effectiveClusterSize('widget', id), 0),
-      workArea.height
-    );
-    // Content bounds, not outer bounds - width/height here need to match
-    // exactly what the renderer's CSS sees, or the native titlebar/frame
-    // (when not borderless) eats into it and the last cluster's bottom edge
-    // ends up outside the visible window.
-    win.setContentBounds({
-      width: WIDGET_WIDTH,
+    const outer = win.getBounds();
+    const content = win.getContentBounds();
+    const width = WIDGET_WIDTH + outer.width - content.width;
+    const desiredHeight = chromeHeight + settings.clusters.reduce((sum, id) => sum + effectiveClusterSize('widget', id), 0);
+    const height = Math.max(1, Math.min(desiredHeight + outer.height - content.height,
+      workArea.height - WIDGET_SIDE_MARGIN * 2));
+    // Preserve the requested content size when it fits, but cap the outer
+    // window so the titlebar and both screen margins fit as well.
+    win.setBounds({
+      width,
       height,
-      x: workArea.x + workArea.width - WIDGET_WIDTH - 16,
-      y: workArea.y + workArea.height - height - 16
+      x: workArea.x + workArea.width - width - WIDGET_SIDE_MARGIN,
+      y: workArea.y + workArea.height - height - WIDGET_SIDE_MARGIN
     });
     return;
   }
@@ -625,7 +655,10 @@ async function checkReminders() {
       }
       changed = true;
     }
-    if (changed) await writeMeta(meta);
+    if (changed) {
+      await writeMeta(meta);
+      broadcastToAll('data:changed', 'notes');
+    }
   } catch (err) {
     console.error('Reminder check failed', err);
   }
@@ -873,6 +906,7 @@ function registerIpc() {
     if (typeof patch.icon === 'string' && /^[a-z][a-z0-9-]{1,30}$/.test(patch.icon)) clean.icon = patch.icon;
     if (typeof patch.urgent === 'boolean') clean.urgent = patch.urgent;
     if (typeof patch.archived === 'boolean') clean.archived = patch.archived;
+    if (typeof patch.reminderCountdown === 'boolean') clean.reminderCountdown = patch.reminderCountdown;
     if (patch && 'reminderAt' in patch) {
       if (patch.reminderAt === null) {
         clean.reminderAt = null;
@@ -895,6 +929,7 @@ function registerIpc() {
       delete next.reminderAt;
       delete next.reminderNotified;
       delete next.reminderRepeat;
+      delete next.reminderCountdown;
     } else if (!next.reminderRepeat || next.reminderRepeat === 'none') {
       delete next.reminderRepeat;
     }
@@ -1254,6 +1289,7 @@ function createWindow(bounds) {
     win.webContents.send('app:confirm-close');
   });
 
+  guardWidgetBounds(win, () => settings.widgetMode);
   applySettings();
 }
 
@@ -1364,6 +1400,7 @@ function createClusterWindow(id) {
 
   poppedWindows.set(id, popWin);
   if (side) poppedSide.set(id, side);
+  guardWidgetBounds(popWin, () => poppedSide.has(id));
 
   popWin.on('closed', () => {
     poppedWindows.delete(id);
@@ -1458,6 +1495,14 @@ if (!gotLock) {
     registerGalleryProtocol();
     createWindow();
     createTray();
+    const constrainWidgets = () => {
+      if (settings.widgetMode && win) keepWidgetOnScreen(win);
+      for (const [id, window] of poppedWindows) {
+        if (poppedSide.has(id)) keepWidgetOnScreen(window);
+      }
+    };
+    screen.on('display-metrics-changed', constrainWidgets);
+    screen.on('display-removed', constrainWidgets);
     startReminderScheduler();
     setupAutoUpdater();
     app.on('activate', () => {

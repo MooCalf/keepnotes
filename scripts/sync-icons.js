@@ -8,7 +8,7 @@ const path = require('path');
 const ICONS = [
   'settings', 'sun', 'moon', 'image', 'pin', 'pin-off', 'tag', 'hash',
   'link', 'search', 'plus', 'trash-2', 'x', 'minimize-2', 'maximize-2', 'pencil', 'eye',
-  'command', 'palette', 'folder-open', 'square-check', 'check', 'bell', 'triangle-alert', 'repeat',
+  'command', 'palette', 'folder-open', 'square-check', 'check', 'bell', 'clock', 'triangle-alert', 'repeat',
   'download', 'rotate-cw', 'chevron-left', 'chevron-right', 'video',
   'file-plus', 'upload-cloud', 'external-link',
   // note icon picker choices
